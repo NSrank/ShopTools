@@ -1,0 +1,28 @@
+name: ShopTools
+version: '${project.version}'
+main: org.plugin.shoptools.ShopTools
+api-version: '1.20'
+depend: [QuickShop]
+loadbefore: []
+description: A plugin to help players better use QuickShop-Reremake plugin
+author: NSrank & Augment
+website: https://github.com/NSrank/ShopTools
+
+commands:
+  shoptools:
+    description: ShopTools main command
+    usage: /<command> [search <物品ID>|near|page <页码>|list <物品ID>|who <玩家名>] [页码]
+    aliases: [st]
+    permission: shoptools.use
+  st:
+    description: ShopTools short command
+    usage: /<command> [search <物品ID>|near|page <页码>|list <物品ID>|who <玩家名>] [页码]
+    permission: shoptools.use
+
+permissions:
+  shoptools.use:
+    description: Allows using ShopTools commands
+    default: true
+  shoptools.admin:
+    description: Allows using ShopTools admin commands
+    default: op

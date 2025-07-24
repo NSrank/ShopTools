@@ -1,0 +1,74 @@
+# ShopTools 配置文件
+# 作者: NSrank & Augment
+# 版本: 1.0
+
+# 调试模式
+debug: false
+
+# 缓存设置
+cache:
+  # 缓存大小限制
+  size: 1000
+  # 缓存过期时间（毫秒）
+  expire-time: 300000
+
+# 数据同步设置
+sync:
+  # 是否启用自动同步
+  auto: true
+  # 同步间隔（毫秒）
+  interval: 600000
+
+# 消息配置
+messages:
+  # 消息前缀
+  prefix: "&6[ShopTools] &r"
+  
+  # 错误消息
+  no-permission: "&c你没有权限使用此命令！"
+  player-only: "&c此命令只能由玩家执行！"
+  invalid-command: "&c无效的命令！使用 /shoptools help 查看帮助。"
+  quickshop-not-found: "&c未找到QuickShop插件！请确保已安装QuickShop-Reremake。"
+  plugin-initializing: "&e插件正在初始化中，请稍后再试..."
+  quickshop-not-ready: "&e正在等待QuickShop插件完全启动，请稍后再试..."
+  
+  # 数据加载消息
+  data-loading: "&a正在加载商店数据..."
+  data-loaded: "&a商店数据加载完成！共加载 {count} 个商店。"
+  data-load-failed: "&c商店数据加载失败！请检查控制台错误信息。"
+  
+  # 查询结果消息
+  no-shops-found: "&e未找到任何商店数据。"
+  item-not-found: "&e未找到物品 &6{item}&e 的商店。"
+  player-not-found: "&e未找到玩家 &6{player}&e 的商店。"
+  
+  # 商店列表显示
+  shop-list-header: "&6=== {title} ==="
+  shop-list-item: "&e{item} &7{location} &a{price} &b{owner} {status}"
+  shop-list-footer: "&6=== 共 {count} 个商店 ==="
+  
+  # 帮助信息
+  help-header: "&6=== ShopTools 帮助 ==="
+  # 玩家可用命令
+  help-search: "&e/shoptools search <物品ID> [页码] &7- 搜索指定物品的所有商店（按距离排序）"
+  help-near: "&e/shoptools near [页码] &7- 查看附近200格内的所有商店"
+  # 管理员命令
+  help-page: "&e/shoptools page <页码> &7- 分页显示所有商店 &c(管理员)"
+  help-list: "&e/shoptools list <物品ID> [页码] &7- 显示指定物品的商店 &c(管理员)"
+  help-list-item: "&7别名: &e/st search <物品ID>&7, &e/st near [页码]"
+  help-who: "&e/shoptools who <玩家名/UUID> [页码] &7- 显示指定玩家的商店 &c(管理员)"
+  help-reload: "&e/shoptools reload &7- 重新加载配置和数据 &c(管理员)"
+
+  # 错误信息
+  player-only: "&c此命令只能由玩家执行！"
+  
+  # 重载消息
+  reload-start: "&a正在重新加载配置和数据..."
+  reload-complete: "&a重新加载完成！"
+  reload-failed: "&c重新加载失败！请检查控制台错误信息。"
+  
+  # 同步消息
+  sync-start: "&a开始同步商店数据..."
+  sync-complete: "&a数据同步完成！"
+  sync-failed: "&c数据同步失败！"
+  sync-in-progress: "&e数据同步正在进行中，请稍后再试。"
