@@ -28,7 +28,7 @@
 
 ## 权限节点
 
-- `shoptools.use` - 允许使用基础命令（默认：所有玩家）
+- `shoptools.use` - 允许使用基础命令（默认：需要手动授权）
 - `shoptools.admin` - 允许使用管理员命令（默认：OP）
 
 ## 安装要求
@@ -63,6 +63,13 @@ sync:
   auto: true
   interval: 600000
 
+# 命令冷却设置
+cooldown:
+  # 玩家命令冷却时间（秒）
+  player-commands: 3
+  # 管理员是否绕过冷却限制
+  admin-bypass: true
+
 # 消息配置
 messages:
   prefix: "&6[ShopTools] &r"
@@ -85,11 +92,20 @@ messages:
 ## 开发信息
 
 - **作者**: NSrank & Augment
-- **版本**: 1.0
+- **版本**: 1.1
 - **开源协议**: MIT License
 - **GitHub**: https://github.com/NSrank/ShopTools
 
 ## 更新日志
+
+### v1.1.0 (2025-07-24)
+- 🔧 权限系统强化：`shoptools.use`权限默认改为false，需要手动授权
+- ✨ 命令冷却机制：为`/st search`和`/st near`命令添加3秒冷却时间
+- ✨ 管理员绕过：持有`shoptools.admin`权限的用户不受冷却限制
+- 🔧 性能保护：防止玩家频繁请求导致服务器卡顿
+- 🔧 配置优化：新增cooldown配置节点，支持自定义冷却时间
+- 🐛 修复命令注册：移除plugin.yml中的权限字段，解决双重权限检查问题
+- 🐛 修复权限继承：管理员权限现在正确包含基础权限，支持权限层次结构
 
 ### v1.0.9 (2025-07-24)
 - ✨ 增强`/st search`功能：搜索范围扩展到全服所有商店
@@ -207,7 +223,7 @@ A powerful Minecraft shop query plugin that provides comprehensive shop informat
 
 ## Permissions
 
-- `shoptools.use` - Allow use of basic commands (default: all players)
+- `shoptools.use` - Allow use of basic commands (default: requires manual authorization)
 - `shoptools.admin` - Allow use of admin commands (default: operators)
 
 ## Installation
@@ -232,6 +248,13 @@ The plugin automatically creates `plugins/ShopTools/config.yml` with the followi
 data-sync:
   auto-sync-on-startup: true
   sync-interval-minutes: 30
+
+# Command cooldown settings
+cooldown:
+  # Player command cooldown time (seconds)
+  player-commands: 3
+  # Whether admins bypass cooldown restrictions
+  admin-bypass: true
 
 # Message settings
 messages:
@@ -269,6 +292,15 @@ messages:
 - **Permission separation**: Players use nearby search, admins use server-wide queries
 
 ## Version History
+
+### v1.1.0 (2025-07-24)
+- 🔧 Enhanced permission system: `shoptools.use` permission default changed to false, requires manual authorization
+- ✨ Command cooldown mechanism: Added 3-second cooldown for `/st search` and `/st near` commands
+- ✨ Admin bypass: Users with `shoptools.admin` permission are not subject to cooldown restrictions
+- 🔧 Performance protection: Prevent server lag from frequent player requests
+- 🔧 Configuration optimization: Added cooldown configuration node, supports custom cooldown time
+- 🐛 Fixed command registration: Removed permission fields from plugin.yml, resolved double permission check issue
+- 🐛 Fixed permission inheritance: Admin permissions now correctly include basic permissions, supports permission hierarchy
 
 ### v1.0.9 (2025-07-24)
 - ✨ Enhanced `/st search` feature: Extended search range to all server shops

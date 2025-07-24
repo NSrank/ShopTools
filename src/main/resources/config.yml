@@ -1,6 +1,6 @@
 # ShopTools 配置文件
 # 作者: NSrank & Augment
-# 版本: 1.0
+# 版本: 1.1
 
 # 调试模式
 debug: false
@@ -19,6 +19,13 @@ sync:
   # 同步间隔（毫秒）
   interval: 600000
 
+# 命令冷却设置
+cooldown:
+  # 玩家命令冷却时间（秒）
+  player-commands: 3
+  # 管理员是否绕过冷却限制
+  admin-bypass: true
+
 # 消息配置
 messages:
   # 消息前缀
@@ -31,6 +38,7 @@ messages:
   quickshop-not-found: "&c未找到QuickShop插件！请确保已安装QuickShop-Reremake。"
   plugin-initializing: "&e插件正在初始化中，请稍后再试..."
   quickshop-not-ready: "&e正在等待QuickShop插件完全启动，请稍后再试..."
+  command-cooldown: "&c命令冷却中，请等待 {seconds} 秒后再试！"
   
   # 数据加载消息
   data-loading: "&a正在加载商店数据..."

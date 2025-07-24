@@ -22,9 +22,10 @@ import java.util.stream.Collectors;
  * @author NSrank & Augment
  */
 public class ShopToolsCommand implements CommandExecutor, TabCompleter {
-    
+
     private final ShopTools plugin;
     private final ConfigManager configManager;
+    private final Map<UUID, Long> playerCooldowns = new HashMap<>();
     private ShopDataManager dataManager;
     
     /**
@@ -51,12 +52,12 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
     
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        // 检查权限
-        if (!sender.hasPermission("shoptools.use")) {
+        // 检查权限（管理员权限包含基础权限）
+        if (!sender.hasPermission("shoptools.use") && !sender.hasPermission("shoptools.admin")) {
             MessageUtil.sendMessage(sender, configManager.getMessage("no-permission"));
             return true;
         }
-        
+
         // 检查数据管理器是否已初始化
         if (dataManager == null) {
             MessageUtil.sendMessage(sender, configManager.getMessage("plugin-initializing"));
@@ -76,7 +77,14 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
         }
         
         String subCommand = args[0].toLowerCase();
-        
+
+        // 检查玩家命令的冷却时间
+        if (sender instanceof Player && (subCommand.equals("search") || subCommand.equals("near"))) {
+            if (!checkCooldown((Player) sender)) {
+                return true; // 冷却时间未到，直接返回
+            }
+        }
+
         switch (subCommand) {
             case "search":
                 handleSearchCommand(sender, args);
@@ -1188,5 +1196,58 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
         public String getPlayerName() { return playerName; }
         public UUID getPlayerId() { return playerId; }
         public int getShopCount() { return shopCount; }
+    }
+
+    /**
+     * 检查玩家命令冷却时间
+     *
+     * @param player 玩家
+     * @return 如果可以执行命令返回true，否则返回false
+     */
+    private boolean checkCooldown(Player player) {
+        // 管理员绕过冷却限制
+        if (player.hasPermission("shoptools.admin") &&
+            configManager.getConfig().getBoolean("cooldown.admin-bypass", true)) {
+            return true;
+        }
+
+        UUID playerId = player.getUniqueId();
+        long currentTime = System.currentTimeMillis();
+        long cooldownSeconds = configManager.getConfig().getLong("cooldown.player-commands", 3);
+        long cooldownMillis = cooldownSeconds * 1000;
+
+        // 检查是否在冷却时间内
+        if (playerCooldowns.containsKey(playerId)) {
+            long lastUsed = playerCooldowns.get(playerId);
+            long timePassed = currentTime - lastUsed;
+
+            if (timePassed < cooldownMillis) {
+                // 还在冷却时间内
+                long remainingSeconds = (cooldownMillis - timePassed) / 1000 + 1;
+                String message = configManager.getMessage("command-cooldown")
+                        .replace("{seconds}", String.valueOf(remainingSeconds));
+                MessageUtil.sendMessage(player, message);
+                return false;
+            }
+        }
+
+        // 更新最后使用时间
+        playerCooldowns.put(playerId, currentTime);
+
+        // 清理过期的冷却记录（避免内存泄漏）
+        cleanupExpiredCooldowns(currentTime, cooldownMillis);
+
+        return true;
+    }
+
+    /**
+     * 清理过期的冷却记录
+     *
+     * @param currentTime 当前时间
+     * @param cooldownMillis 冷却时间（毫秒）
+     */
+    private void cleanupExpiredCooldowns(long currentTime, long cooldownMillis) {
+        playerCooldowns.entrySet().removeIf(entry ->
+            currentTime - entry.getValue() > cooldownMillis * 2); // 保留2倍冷却时间的记录
     }
 }
