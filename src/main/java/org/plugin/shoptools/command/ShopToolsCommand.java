@@ -8,6 +8,8 @@ import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.plugin.shoptools.ShopTools;
 import org.plugin.shoptools.config.ConfigManager;
+import org.plugin.shoptools.data.LocationPoint;
+import org.plugin.shoptools.manager.LocationManager;
 import org.plugin.shoptools.model.ShopData;
 import org.plugin.shoptools.storage.ShopDataManager;
 import org.plugin.shoptools.util.MessageUtil;
@@ -27,6 +29,7 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
     private final ConfigManager configManager;
     private final Map<UUID, Long> playerCooldowns = new HashMap<>();
     private ShopDataManager dataManager;
+    private LocationManager locationManager;
     
     /**
      * 构造函数
@@ -34,11 +37,13 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
      * @param plugin 插件实例
      * @param configManager 配置管理器
      * @param dataManager 数据管理器（可以为null，稍后通过setDataManager设置）
+     * @param locationManager 位置管理器
      */
-    public ShopToolsCommand(ShopTools plugin, ConfigManager configManager, ShopDataManager dataManager) {
+    public ShopToolsCommand(ShopTools plugin, ConfigManager configManager, ShopDataManager dataManager, LocationManager locationManager) {
         this.plugin = plugin;
         this.configManager = configManager;
         this.dataManager = dataManager;
+        this.locationManager = locationManager;
     }
 
     /**
@@ -100,6 +105,12 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
                 break;
             case "who":
                 handleWhoCommand(sender, args);
+                break;
+            case "clocate":
+                handleCreateLocationCommand(sender, args);
+                break;
+            case "locate":
+                handleLocateCommand(sender, args);
                 break;
             case "reload":
                 handleReloadCommand(sender);
@@ -1031,6 +1042,7 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
         // 玩家可用命令
         MessageUtil.sendMessage(sender, configManager.getMessage("help-search"));
         MessageUtil.sendMessage(sender, configManager.getMessage("help-near"));
+        MessageUtil.sendMessage(sender, "&7/shoptools locate <关键字> [页码] - 查找位置点");
 
         // 管理员命令
         if (sender.hasPermission("shoptools.admin")) {
@@ -1038,6 +1050,7 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
             MessageUtil.sendMessage(sender, configManager.getMessage("help-list"));
             MessageUtil.sendMessage(sender, configManager.getMessage("help-list-item"));
             MessageUtil.sendMessage(sender, configManager.getMessage("help-who"));
+            MessageUtil.sendMessage(sender, "&7/shoptools clocate <x,y,z|~,~,~> <点位名> <关键字> - 创建位置点 (管理员)");
             MessageUtil.sendMessage(sender, configManager.getMessage("help-reload"));
         }
     }
@@ -1051,6 +1064,7 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
             // 玩家可用命令
             completions.add("search");
             completions.add("near");
+            completions.add("locate");
             completions.add("help");
 
             // 管理员命令
@@ -1058,6 +1072,7 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
                 completions.add("page");
                 completions.add("list");
                 completions.add("who");
+                completions.add("clocate");
                 completions.add("reload");
             }
         } else if (args.length == 2) {
@@ -1099,6 +1114,18 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
                 for (Player player : Bukkit.getOnlinePlayers()) {
                     completions.add(player.getName());
                 }
+            } else if ("locate".equals(subCommand)) {
+                // 关键字补全（玩家命令）
+                completions.add("list"); // 特殊命令
+                completions.addAll(locationManager.getAllKeywords());
+            } else if ("clocate".equals(subCommand) && sender.hasPermission("shoptools.admin")) {
+                // 坐标补全（管理员命令）
+                completions.add("~,~,~");
+                if (sender instanceof Player) {
+                    Player player = (Player) sender;
+                    org.bukkit.Location loc = player.getLocation();
+                    completions.add(String.format("%.0f,%.0f,%.0f", loc.getX(), loc.getY(), loc.getZ()));
+                }
             }
         } else if (args.length == 3) {
             String subCommand = args[0].toLowerCase();
@@ -1131,6 +1158,22 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
                     int totalPages = (int) Math.ceil((double) shops.size() / 10);
                     for (int i = 1; i <= Math.min(totalPages, 10); i++) {
                         completions.add(String.valueOf(i));
+                    }
+                }
+            } else if ("locate".equals(subCommand)) {
+                // 第三个参数：页码补全（针对特定关键字）
+                String keyword = args[1];
+                if (!keyword.equalsIgnoreCase("list")) {
+                    org.bukkit.Location playerLocation = null;
+                    if (sender instanceof Player) {
+                        playerLocation = ((Player) sender).getLocation();
+                    }
+                    List<LocationPoint> locations = locationManager.findLocationsByKeyword(keyword, playerLocation);
+                    if (locations.size() > 10) {
+                        int totalPages = (int) Math.ceil((double) locations.size() / 10);
+                        for (int i = 1; i <= Math.min(totalPages, 10); i++) {
+                            completions.add(String.valueOf(i));
+                        }
                     }
                 }
             }
@@ -1249,5 +1292,141 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
     private void cleanupExpiredCooldowns(long currentTime, long cooldownMillis) {
         playerCooldowns.entrySet().removeIf(entry ->
             currentTime - entry.getValue() > cooldownMillis * 2); // 保留2倍冷却时间的记录
+    }
+
+    /**
+     * 处理clocate命令（创建位置点）
+     *
+     * @param sender 命令发送者
+     * @param args 命令参数
+     */
+    private void handleCreateLocationCommand(CommandSender sender, String[] args) {
+        // 检查管理员权限
+        if (!sender.hasPermission("shoptools.admin")) {
+            MessageUtil.sendMessage(sender, configManager.getMessage("no-permission"));
+            return;
+        }
+
+        if (args.length < 4) {
+            MessageUtil.sendMessage(sender, "&c用法: /shoptools clocate <x,y,z|~,~,~> <点位名> <关键字>");
+            MessageUtil.sendMessage(sender, "&7示例: /shoptools clocate ~,~,~ 主城传送点 传送");
+            MessageUtil.sendMessage(sender, "&7示例: /shoptools clocate 100,64,200 商业区 商店");
+            return;
+        }
+
+        String coordStr = args[1];
+        String name = args[2];
+        String keyword = args[3];
+
+        // 解析坐标
+        org.bukkit.Location playerLocation = null;
+        if (sender instanceof Player) {
+            playerLocation = ((Player) sender).getLocation();
+        }
+
+        org.bukkit.Location location = locationManager.parseCoordinates(coordStr, playerLocation);
+        if (location == null) {
+            MessageUtil.sendMessage(sender, "&c无效的坐标格式！请使用 x,y,z 或 ~,~,~ 格式");
+            return;
+        }
+
+        // 创建位置点
+        boolean success = locationManager.createLocationPoint(sender, location, name, keyword);
+        if (!success) {
+            // 错误消息已在LocationManager中发送
+            return;
+        }
+    }
+
+    /**
+     * 处理locate命令（查找位置点）
+     *
+     * @param sender 命令发送者
+     * @param args 命令参数
+     */
+    private void handleLocateCommand(CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            MessageUtil.sendMessage(sender, "&c用法: /shoptools locate <关键字> [页码]");
+            MessageUtil.sendMessage(sender, "&7查看所有关键字: /shoptools locate list");
+            return;
+        }
+
+        String keyword = args[1];
+
+        // 特殊命令：列出所有关键字
+        if (keyword.equalsIgnoreCase("list")) {
+            List<String> keywords = locationManager.getAllKeywords();
+            if (keywords.isEmpty()) {
+                MessageUtil.sendMessage(sender, "&c暂无任何位置点！");
+                return;
+            }
+
+            MessageUtil.sendMessage(sender, "&a=== 可用关键字 ===");
+            for (String kw : keywords) {
+                int count = locationManager.getLocationPointCount(kw);
+                MessageUtil.sendMessage(sender, String.format("&7- &f%s &7(%d个位置点)", kw, count));
+            }
+            return;
+        }
+
+        // 获取玩家位置（用于距离计算）
+        org.bukkit.Location playerLocation = null;
+        if (sender instanceof Player) {
+            playerLocation = ((Player) sender).getLocation();
+        }
+
+        // 查找位置点
+        List<LocationPoint> locations = locationManager.findLocationsByKeyword(keyword, playerLocation);
+        if (locations.isEmpty()) {
+            MessageUtil.sendMessage(sender, "&c未找到关键字为 '" + keyword + "' 的位置点！");
+            return;
+        }
+
+        // 分页显示
+        int page = 1;
+        if (args.length >= 3) {
+            try {
+                page = Integer.parseInt(args[2]);
+                if (page < 1) {
+                    MessageUtil.sendMessage(sender, "&c页码必须大于0！");
+                    return;
+                }
+            } catch (NumberFormatException e) {
+                MessageUtil.sendMessage(sender, "&c无效的页码！");
+                return;
+            }
+        }
+
+        int itemsPerPage = 10;
+        int totalPages = (int) Math.ceil((double) locations.size() / itemsPerPage);
+
+        if (page > totalPages) {
+            MessageUtil.sendMessage(sender, "&c页码超出范围！总共 " + totalPages + " 页");
+            return;
+        }
+
+        int startIndex = (page - 1) * itemsPerPage;
+        int endIndex = Math.min(startIndex + itemsPerPage, locations.size());
+
+        // 显示结果
+        MessageUtil.sendMessage(sender, String.format("&a=== 位置点查询结果 (%s) - 第%d/%d页 ===", keyword, page, totalPages));
+
+        for (int i = startIndex; i < endIndex; i++) {
+            LocationPoint point = locations.get(i);
+            String distance = point.getFormattedDistance(playerLocation);
+
+            MessageUtil.sendMessage(sender, String.format(
+                "&7%d. &f%s &7- %s &7- &e%s",
+                i + 1,
+                point.getName(),
+                point.getFormattedLocation(),
+                distance
+            ));
+        }
+
+        // 分页提示
+        if (totalPages > 1) {
+            MessageUtil.sendMessage(sender, String.format("&7使用 &f/shoptools locate %s %d &7查看下一页", keyword, page + 1));
+        }
     }
 }
