@@ -3,6 +3,7 @@ package org.plugin.shoptools.data;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.Bukkit;
+import org.plugin.shoptools.util.DirectionUtil;
 
 import java.util.UUID;
 
@@ -107,26 +108,28 @@ public class LocationPoint {
     
     /**
      * 获取格式化的距离文本
-     * 
+     *
      * @param playerLocation 玩家位置
      * @return 格式化的距离文本
      */
     public String getFormattedDistance(Location playerLocation) {
-        if (playerLocation == null || playerLocation.getWorld() == null || 
+        if (playerLocation == null || playerLocation.getWorld() == null ||
             !playerLocation.getWorld().getName().equals(worldName)) {
             return "otherworld";
         }
-        
+
         double distance = getDistance(playerLocation);
         if (distance == Double.MAX_VALUE) {
             return "otherworld";
         }
-        
-        if (distance > 200.0) {
-            return "200m+";
+
+        Location targetLocation = getLocation();
+        if (targetLocation == null) {
+            return "unknown";
         }
-        
-        return String.format("%.1fm", distance);
+
+        // 使用DirectionUtil格式化带方向的距离
+        return DirectionUtil.formatDistanceWithDirection(playerLocation, targetLocation, distance);
     }
     
     /**

@@ -1,6 +1,6 @@
 # ShopTools 配置文件
 # 作者: NSrank & Augment
-# 版本: 1.1
+# 版本: 1.2
 
 # 调试模式
 debug: false
@@ -67,9 +67,6 @@ messages:
   help-who: "&e/shoptools who <玩家名/UUID> [页码] &7- 显示指定玩家的商店 &c(管理员)"
   help-reload: "&e/shoptools reload &7- 重新加载配置和数据 &c(管理员)"
 
-  # 错误信息
-  player-only: "&c此命令只能由玩家执行！"
-  
   # 重载消息
   reload-start: "&a正在重新加载配置和数据..."
   reload-complete: "&a重新加载完成！"

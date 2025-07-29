@@ -12,6 +12,7 @@ import org.plugin.shoptools.data.LocationPoint;
 import org.plugin.shoptools.manager.LocationManager;
 import org.plugin.shoptools.model.ShopData;
 import org.plugin.shoptools.storage.ShopDataManager;
+import org.plugin.shoptools.util.DirectionUtil;
 import org.plugin.shoptools.util.MessageUtil;
 
 import java.util.*;
@@ -814,24 +815,8 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
      * @return 附近的商店列表
      */
     private List<ShopData> getNearbyShopsByItem(Player player, String itemId, double radius) {
-        List<ShopData> allShops = dataManager.getShopsByItem(itemId);
-        List<ShopData> nearbyShops = new ArrayList<>();
-
-        org.bukkit.Location playerLocation = player.getLocation();
-
-        for (ShopData shop : allShops) {
-            org.bukkit.Location shopLocation = shop.getLocation();
-            if (shopLocation != null && shopLocation.getWorld() != null &&
-                shopLocation.getWorld().equals(playerLocation.getWorld())) {
-
-                double distance = getDistance(playerLocation, shopLocation);
-                if (distance <= radius) {
-                    nearbyShops.add(shop);
-                }
-            }
-        }
-
-        return nearbyShops;
+        // 使用空间索引优化查询
+        return dataManager.findNearbyShopsByItem(itemId, player.getLocation(), radius);
     }
 
     /**
@@ -842,24 +827,8 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
      * @return 附近的商店列表
      */
     private List<ShopData> getNearbyShops(Player player, double radius) {
-        List<ShopData> allShops = dataManager.getAllShops();
-        List<ShopData> nearbyShops = new ArrayList<>();
-
-        org.bukkit.Location playerLocation = player.getLocation();
-
-        for (ShopData shop : allShops) {
-            org.bukkit.Location shopLocation = shop.getLocation();
-            if (shopLocation != null && shopLocation.getWorld() != null &&
-                shopLocation.getWorld().equals(playerLocation.getWorld())) {
-
-                double distance = getDistance(playerLocation, shopLocation);
-                if (distance <= radius) {
-                    nearbyShops.add(shop);
-                }
-            }
-        }
-
-        return nearbyShops;
+        // 使用空间索引优化查询
+        return dataManager.findNearbyShops(player.getLocation(), radius);
     }
 
     /**
@@ -940,13 +909,8 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
         // 计算距离
         double distance = playerLocation.distance(shopLocation);
 
-        // 超过200格显示"200m+"
-        if (distance > 200.0) {
-            return "200m+";
-        }
-
-        // 正常距离显示
-        return String.format("%.1fm", distance);
+        // 使用DirectionUtil格式化带方向的距离
+        return DirectionUtil.formatDistanceWithDirection(playerLocation, shopLocation, distance);
     }
 
     /**

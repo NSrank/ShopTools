@@ -9,6 +9,8 @@ import org.bukkit.entity.Player;
 import org.plugin.shoptools.ShopTools;
 import org.plugin.shoptools.config.ConfigManager;
 import org.plugin.shoptools.data.LocationPoint;
+import org.plugin.shoptools.spatial.LocationSpatialIndex;
+import org.plugin.shoptools.spatial.OctreeStats;
 import org.plugin.shoptools.util.MessageUtil;
 
 import java.io.*;
@@ -19,14 +21,16 @@ import java.util.stream.Collectors;
 /**
  * 位置点管理器
  * 负责位置点的创建、存储、查询和管理
+ * 使用八叉树空间索引提供高效的空间查询功能
  */
 public class LocationManager {
-    
+
     private final ShopTools plugin;
     private final ConfigManager configManager;
     private final File dataFile;
     private final Gson gson;
     private final Map<String, LocationPoint> locationPoints;
+    private final LocationSpatialIndex spatialIndex;
     
     public LocationManager(ShopTools plugin, ConfigManager configManager) {
         this.plugin = plugin;
@@ -34,7 +38,8 @@ public class LocationManager {
         this.dataFile = new File(plugin.getDataFolder(), "locations.json");
         this.gson = new GsonBuilder().setPrettyPrinting().create();
         this.locationPoints = new HashMap<>();
-        
+        this.spatialIndex = new LocationSpatialIndex();
+
         loadLocationPoints();
     }
     
@@ -67,13 +72,14 @@ public class LocationManager {
         
         // 创建位置点
         LocationPoint point = new LocationPoint(
-            id, name, keyword, 
+            id, name, keyword,
             location.getWorld().getName(),
             location.getX(), location.getY(), location.getZ(),
             sender.getName()
         );
-        
+
         locationPoints.put(id, point);
+        spatialIndex.addLocation(point);
         saveLocationPoints();
         
         MessageUtil.sendMessage(sender, String.format(
@@ -90,23 +96,22 @@ public class LocationManager {
     
     /**
      * 根据关键字查找位置点
-     * 
+     *
      * @param keyword 关键字
      * @param playerLocation 玩家位置（用于距离排序）
      * @return 位置点列表，按距离排序
      */
     public List<LocationPoint> findLocationsByKeyword(String keyword, Location playerLocation) {
-        return locationPoints.values().stream()
-            .filter(point -> point.getKeyword().equalsIgnoreCase(keyword))
-            .sorted((p1, p2) -> {
-                if (playerLocation == null) {
-                    return p1.getName().compareToIgnoreCase(p2.getName());
-                }
-                double dist1 = p1.getDistance(playerLocation);
-                double dist2 = p2.getDistance(playerLocation);
-                return Double.compare(dist1, dist2);
-            })
-            .collect(Collectors.toList());
+        if (playerLocation != null) {
+            // 使用空间索引进行优化查询（仅在同一世界内）
+            return spatialIndex.findLocationsByKeywordInWorld(keyword, playerLocation.getWorld().getName(), playerLocation);
+        } else {
+            // 回退到传统查询方式
+            return locationPoints.values().stream()
+                .filter(point -> point.getKeyword().equalsIgnoreCase(keyword))
+                .sorted((p1, p2) -> p1.getName().compareToIgnoreCase(p2.getName()))
+                .collect(Collectors.toList());
+        }
     }
     
     /**
@@ -124,13 +129,14 @@ public class LocationManager {
     
     /**
      * 删除位置点
-     * 
+     *
      * @param id 位置点ID
      * @return 是否删除成功
      */
     public boolean removeLocationPoint(String id) {
         LocationPoint removed = locationPoints.remove(id);
         if (removed != null) {
+            spatialIndex.removeLocation(removed);
             saveLocationPoints();
             return true;
         }
@@ -153,6 +159,7 @@ public class LocationManager {
             
         if (toRemove != null) {
             locationPoints.remove(toRemove.getId());
+            spatialIndex.removeLocation(toRemove);
             saveLocationPoints();
             return true;
         }
@@ -235,14 +242,19 @@ public class LocationManager {
         if (!dataFile.exists()) {
             return;
         }
-        
+
         try (FileReader reader = new FileReader(dataFile)) {
             Type type = new TypeToken<Map<String, LocationPoint>>(){}.getType();
             Map<String, LocationPoint> loaded = gson.fromJson(reader, type);
             if (loaded != null) {
                 locationPoints.putAll(loaded);
+
+                // 构建空间索引
+                for (LocationPoint point : loaded.values()) {
+                    spatialIndex.addLocation(point);
+                }
             }
-            plugin.getLogger().info("已加载 " + locationPoints.size() + " 个位置点");
+            plugin.getLogger().info("已加载 " + locationPoints.size() + " 个位置点到空间索引");
         } catch (IOException e) {
             plugin.getLogger().warning("加载位置点数据失败: " + e.getMessage());
         }
@@ -276,7 +288,7 @@ public class LocationManager {
     
     /**
      * 获取指定关键字的位置点数量
-     * 
+     *
      * @param keyword 关键字
      * @return 位置点数量
      */
@@ -284,5 +296,34 @@ public class LocationManager {
         return (int) locationPoints.values().stream()
             .filter(point -> point.getKeyword().equalsIgnoreCase(keyword))
             .count();
+    }
+
+    /**
+     * 查找指定范围内的位置点
+     *
+     * @param center 中心位置
+     * @param radius 搜索半径
+     * @return 范围内的位置点列表，按距离排序
+     */
+    public List<LocationPoint> findNearbyLocations(Location center, double radius) {
+        return spatialIndex.findNearbyLocations(center, radius);
+    }
+
+    /**
+     * 获取空间索引统计信息
+     *
+     * @return 统计信息映射（世界名 -> 统计信息）
+     */
+    public Map<String, OctreeStats> getSpatialIndexStats() {
+        return spatialIndex.getIndexStats();
+    }
+
+    /**
+     * 清理资源
+     */
+    public void shutdown() {
+        if (spatialIndex != null) {
+            spatialIndex.close();
+        }
     }
 }

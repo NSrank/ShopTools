@@ -7,6 +7,9 @@ import org.bukkit.Location;
 import org.bukkit.World;
 import org.plugin.shoptools.config.ConfigManager;
 import org.plugin.shoptools.model.ShopData;
+import org.plugin.shoptools.spatial.LocationSpatialIndex;
+import org.plugin.shoptools.spatial.OctreeStats;
+import org.plugin.shoptools.data.LocationPoint;
 
 import java.io.*;
 import java.lang.reflect.Type;
@@ -32,7 +35,10 @@ public class ShopDataManager {
     private final Map<UUID, ShopData> shopCache = new ConcurrentHashMap<>();
     private final Map<String, List<ShopData>> itemCache = new ConcurrentHashMap<>();
     private final Map<UUID, List<ShopData>> ownerCache = new ConcurrentHashMap<>();
-    
+
+    // 空间索引系统
+    private final LocationSpatialIndex spatialIndex;
+
     private long lastUpdateTime = 0;
     private boolean isDataLoaded = false;
     
@@ -47,17 +53,20 @@ public class ShopDataManager {
         this.logger = logger;
         this.configManager = configManager;
         this.dataFile = new File(dataFolder, "shops.json");
-        
+
+        // 初始化空间索引
+        this.spatialIndex = new LocationSpatialIndex();
+
         // 创建Gson实例，使用简化的序列化策略
         this.gson = new GsonBuilder()
                 .setPrettyPrinting()
                 .create();
-        
+
         // 确保数据文件夹存在
         if (!dataFolder.exists()) {
             dataFolder.mkdirs();
         }
-        
+
         // 加载现有数据
         loadData();
     }
@@ -78,18 +87,35 @@ public class ShopDataManager {
         // 清空缓存
         clearCache();
         
-        // 更新缓存
+        // 更新缓存和空间索引
         for (ShopData shopData : shopDataList) {
             if (shopData != null) {
                 // 添加到主缓存
                 shopCache.put(shopData.getShopId(), shopData);
-                
+
                 // 添加到物品缓存
                 String itemId = shopData.getItemId().toLowerCase();
                 itemCache.computeIfAbsent(itemId, k -> new ArrayList<>()).add(shopData);
-                
+
                 // 添加到店主缓存
                 ownerCache.computeIfAbsent(shopData.getOwnerId(), k -> new ArrayList<>()).add(shopData);
+
+                // 添加到空间索引
+                Location shopLocation = shopData.getLocation();
+                if (shopLocation != null && shopLocation.getWorld() != null) {
+                    // 创建一个临时的LocationPoint来利用空间索引
+                    LocationPoint tempPoint = new LocationPoint(
+                        shopData.getShopId().toString(),
+                        "shop_" + shopData.getItemId(),
+                        shopData.getItemId(),
+                        shopLocation.getWorld().getName(),
+                        shopLocation.getX(),
+                        shopLocation.getY(),
+                        shopLocation.getZ(),
+                        "system"
+                    );
+                    spatialIndex.addLocation(tempPoint);
+                }
             }
         }
         
@@ -104,11 +130,87 @@ public class ShopDataManager {
     
     /**
      * 获取所有商店数据
-     * 
+     *
      * @return 商店数据列表
      */
     public List<ShopData> getAllShops() {
         return new ArrayList<>(shopCache.values());
+    }
+
+    /**
+     * 查找指定范围内的商店
+     *
+     * @param center 中心位置
+     * @param radius 搜索半径
+     * @return 范围内的商店列表，按距离排序
+     */
+    public List<ShopData> findNearbyShops(Location center, double radius) {
+        if (center == null || center.getWorld() == null) {
+            return new ArrayList<>();
+        }
+
+        // 使用空间索引查找附近的位置点
+        List<LocationPoint> nearbyPoints = spatialIndex.findNearbyLocations(center, radius);
+
+        // 将LocationPoint转换为ShopData
+        List<ShopData> nearbyShops = new ArrayList<>();
+        for (LocationPoint point : nearbyPoints) {
+            try {
+                UUID shopId = UUID.fromString(point.getId());
+                ShopData shop = shopCache.get(shopId);
+                if (shop != null) {
+                    nearbyShops.add(shop);
+                }
+            } catch (IllegalArgumentException e) {
+                // 忽略无效的UUID，可能是位置点而非商店
+            }
+        }
+
+        return nearbyShops;
+    }
+
+    /**
+     * 查找指定物品在指定范围内的商店
+     *
+     * @param itemId 物品ID
+     * @param center 中心位置
+     * @param radius 搜索半径
+     * @return 范围内的商店列表，按距离排序
+     */
+    public List<ShopData> findNearbyShopsByItem(String itemId, Location center, double radius) {
+        if (itemId == null || itemId.trim().isEmpty() || center == null || center.getWorld() == null) {
+            return new ArrayList<>();
+        }
+
+        // 先获取所有该物品的商店
+        List<ShopData> itemShops = getShopsByItem(itemId);
+
+        // 过滤出在范围内的商店
+        List<ShopData> nearbyShops = new ArrayList<>();
+        for (ShopData shop : itemShops) {
+            Location shopLocation = shop.getLocation();
+            if (shopLocation != null && shopLocation.getWorld() != null &&
+                shopLocation.getWorld().equals(center.getWorld())) {
+
+                double distance = center.distance(shopLocation);
+                if (distance <= radius) {
+                    nearbyShops.add(shop);
+                }
+            }
+        }
+
+        // 按距离排序
+        nearbyShops.sort((a, b) -> {
+            Location locA = a.getLocation();
+            Location locB = b.getLocation();
+            if (locA == null || locB == null) return 0;
+
+            double distA = center.distance(locA);
+            double distB = center.distance(locB);
+            return Double.compare(distA, distB);
+        });
+
+        return nearbyShops;
     }
     
     /**
@@ -177,6 +279,9 @@ public class ShopDataManager {
         shopCache.clear();
         itemCache.clear();
         ownerCache.clear();
+
+        // 清空空间索引
+        spatialIndex.clear();
     }
     
     /**
