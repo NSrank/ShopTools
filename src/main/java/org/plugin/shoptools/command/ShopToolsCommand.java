@@ -113,6 +113,12 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
             case "locate":
                 handleLocateCommand(sender, args);
                 break;
+            case "listlocate":
+                handleListLocateCommand(sender, args);
+                break;
+            case "dellocate":
+                handleDeleteLocationCommand(sender, args);
+                break;
             case "reload":
                 handleReloadCommand(sender);
                 break;
@@ -1015,6 +1021,8 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
             MessageUtil.sendMessage(sender, configManager.getMessage("help-list-item"));
             MessageUtil.sendMessage(sender, configManager.getMessage("help-who"));
             MessageUtil.sendMessage(sender, "&7/shoptools clocate <x,y,z|~,~,~> <点位名> <关键字> - 创建位置点 (管理员)");
+            MessageUtil.sendMessage(sender, "&7/shoptools listlocate [页码] - 列出所有位置点 (管理员)");
+            MessageUtil.sendMessage(sender, "&7/shoptools dellocate <ID> [confirm] - 删除位置点 (管理员)");
             MessageUtil.sendMessage(sender, configManager.getMessage("help-reload"));
         }
     }
@@ -1037,6 +1045,8 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
                 completions.add("list");
                 completions.add("who");
                 completions.add("clocate");
+                completions.add("listlocate");
+                completions.add("dellocate");
                 completions.add("reload");
             }
         } else if (args.length == 2) {
@@ -1090,6 +1100,21 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
                     org.bukkit.Location loc = player.getLocation();
                     completions.add(String.format("%.0f,%.0f,%.0f", loc.getX(), loc.getY(), loc.getZ()));
                 }
+            } else if ("listlocate".equals(subCommand) && sender.hasPermission("shoptools.admin")) {
+                // 页码补全（管理员命令）
+                List<LocationPoint> allPoints = locationManager.getAllLocationPoints();
+                if (allPoints.size() > 10) {
+                    int totalPages = (int) Math.ceil((double) allPoints.size() / 10);
+                    for (int i = 1; i <= Math.min(totalPages, 10); i++) {
+                        completions.add(String.valueOf(i));
+                    }
+                }
+            } else if ("dellocate".equals(subCommand) && sender.hasPermission("shoptools.admin")) {
+                // ID补全（管理员命令）
+                List<LocationPoint> allPoints = locationManager.getAllLocationPoints();
+                for (LocationPoint point : allPoints) {
+                    completions.add(point.getId());
+                }
             }
         } else if (args.length == 3) {
             String subCommand = args[0].toLowerCase();
@@ -1139,6 +1164,13 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
                             completions.add(String.valueOf(i));
                         }
                     }
+                }
+            } else if ("dellocate".equals(subCommand) && sender.hasPermission("shoptools.admin")) {
+                // 第三个参数：confirm补全（针对特定ID）
+                String id = args[1];
+                LocationPoint point = locationManager.getLocationPoint(id);
+                if (point != null) {
+                    completions.add("confirm");
                 }
             }
         }
@@ -1391,6 +1423,128 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
         // 分页提示
         if (totalPages > 1) {
             MessageUtil.sendMessage(sender, String.format("&7使用 &f/shoptools locate %s %d &7查看下一页", keyword, page + 1));
+        }
+    }
+
+    /**
+     * 处理listlocate命令（列出所有位置点）
+     *
+     * @param sender 命令发送者
+     * @param args 命令参数
+     */
+    private void handleListLocateCommand(CommandSender sender, String[] args) {
+        // 检查管理员权限
+        if (!sender.hasPermission("shoptools.admin")) {
+            MessageUtil.sendMessage(sender, configManager.getMessage("no-permission"));
+            return;
+        }
+
+        List<LocationPoint> allPoints = locationManager.getAllLocationPoints();
+        if (allPoints.isEmpty()) {
+            MessageUtil.sendMessage(sender, "&c当前没有任何位置点！");
+            return;
+        }
+
+        // 分页处理
+        int page = 1;
+        if (args.length >= 2) {
+            try {
+                page = Integer.parseInt(args[1]);
+                if (page < 1) {
+                    MessageUtil.sendMessage(sender, "&c页码必须大于0！");
+                    return;
+                }
+            } catch (NumberFormatException e) {
+                MessageUtil.sendMessage(sender, "&c无效的页码！");
+                return;
+            }
+        }
+
+        int itemsPerPage = 10;
+        int totalPages = (int) Math.ceil((double) allPoints.size() / itemsPerPage);
+
+        if (page > totalPages) {
+            MessageUtil.sendMessage(sender, "&c页码超出范围！总共 " + totalPages + " 页");
+            return;
+        }
+
+        int startIndex = (page - 1) * itemsPerPage;
+        int endIndex = Math.min(startIndex + itemsPerPage, allPoints.size());
+
+        // 显示结果
+        MessageUtil.sendMessage(sender, String.format("&a=== 所有位置点列表 - 第%d/%d页 ===", page, totalPages));
+
+        for (int i = startIndex; i < endIndex; i++) {
+            LocationPoint point = allPoints.get(i);
+            MessageUtil.sendMessage(sender, String.format(
+                "&7%d. &f%s &7[&e%s&7] &7- %s &7- ID: &f%s",
+                i + 1,
+                point.getName(),
+                point.getKeyword(),
+                point.getFormattedLocation(),
+                point.getId()
+            ));
+        }
+
+        // 分页提示
+        if (totalPages > 1) {
+            if (page < totalPages) {
+                MessageUtil.sendMessage(sender, String.format("&7使用 &f/shoptools listlocate %d &7查看下一页", page + 1));
+            }
+            if (page > 1) {
+                MessageUtil.sendMessage(sender, String.format("&7使用 &f/shoptools listlocate %d &7查看上一页", page - 1));
+            }
+        }
+
+        MessageUtil.sendMessage(sender, String.format("&7总计: &f%d &7个位置点", allPoints.size()));
+    }
+
+    /**
+     * 处理dellocate命令（删除位置点）
+     *
+     * @param sender 命令发送者
+     * @param args 命令参数
+     */
+    private void handleDeleteLocationCommand(CommandSender sender, String[] args) {
+        // 检查管理员权限
+        if (!sender.hasPermission("shoptools.admin")) {
+            MessageUtil.sendMessage(sender, configManager.getMessage("no-permission"));
+            return;
+        }
+
+        if (args.length < 2) {
+            MessageUtil.sendMessage(sender, "&c用法: /shoptools dellocate <ID>");
+            MessageUtil.sendMessage(sender, "&7使用 /shoptools listlocate 查看所有位置点的ID");
+            return;
+        }
+
+        String id = args[1];
+
+        // 检查位置点是否存在
+        LocationPoint point = locationManager.getLocationPoint(id);
+        if (point == null) {
+            MessageUtil.sendMessage(sender, "&c未找到ID为 '" + id + "' 的位置点！");
+            MessageUtil.sendMessage(sender, "&7使用 /shoptools listlocate 查看所有位置点的ID");
+            return;
+        }
+
+        // 确认删除
+        MessageUtil.sendMessage(sender, String.format(
+            "&e确认要删除以下位置点吗？\n" +
+            "&7名称: &f%s\n" +
+            "&7关键字: &f%s\n" +
+            "&7位置: &f%s\n" +
+            "&7ID: &f%s\n" +
+            "&c请再次执行命令确认删除: &f/shoptools dellocate %s confirm",
+            point.getName(), point.getKeyword(), point.getFormattedLocation(), id, id
+        ));
+
+        // 检查是否有确认参数
+        if (args.length >= 3 && args[2].equalsIgnoreCase("confirm")) {
+            boolean success = locationManager.deleteLocationPoint(sender, id);
+            if (success) {
+                MessageUtil.sendMessage(sender, "&a位置点删除成功！");
+            }
         }
     }
 }

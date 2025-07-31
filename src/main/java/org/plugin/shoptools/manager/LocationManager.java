@@ -99,19 +99,50 @@ public class LocationManager {
      *
      * @param keyword 关键字
      * @param playerLocation 玩家位置（用于距离排序）
-     * @return 位置点列表，按距离排序
+     * @return 位置点列表，按距离排序，同世界的在前，其他世界的在后
      */
     public List<LocationPoint> findLocationsByKeyword(String keyword, Location playerLocation) {
-        if (playerLocation != null) {
-            // 使用空间索引进行优化查询（仅在同一世界内）
-            return spatialIndex.findLocationsByKeywordInWorld(keyword, playerLocation.getWorld().getName(), playerLocation);
-        } else {
-            // 回退到传统查询方式
-            return locationPoints.values().stream()
-                .filter(point -> point.getKeyword().equalsIgnoreCase(keyword))
+        List<LocationPoint> allMatches = locationPoints.values().stream()
+            .filter(point -> point.getKeyword().equalsIgnoreCase(keyword))
+            .collect(Collectors.toList());
+
+        if (playerLocation == null) {
+            // 没有玩家位置信息，按名称排序
+            return allMatches.stream()
                 .sorted((p1, p2) -> p1.getName().compareToIgnoreCase(p2.getName()))
                 .collect(Collectors.toList());
         }
+
+        String playerWorldName = playerLocation.getWorld().getName();
+
+        // 分离同世界和其他世界的位置点
+        List<LocationPoint> sameWorldPoints = new ArrayList<>();
+        List<LocationPoint> otherWorldPoints = new ArrayList<>();
+
+        for (LocationPoint point : allMatches) {
+            if (point.getWorldName().equals(playerWorldName)) {
+                sameWorldPoints.add(point);
+            } else {
+                otherWorldPoints.add(point);
+            }
+        }
+
+        // 同世界的按距离排序
+        sameWorldPoints.sort((p1, p2) -> {
+            double dist1 = p1.getDistance(playerLocation);
+            double dist2 = p2.getDistance(playerLocation);
+            return Double.compare(dist1, dist2);
+        });
+
+        // 其他世界的按名称排序
+        otherWorldPoints.sort((p1, p2) -> p1.getName().compareToIgnoreCase(p2.getName()));
+
+        // 合并结果：同世界的在前，其他世界的在后
+        List<LocationPoint> result = new ArrayList<>();
+        result.addAll(sameWorldPoints);
+        result.addAll(otherWorldPoints);
+
+        return result;
     }
     
     /**
@@ -307,6 +338,64 @@ public class LocationManager {
      */
     public List<LocationPoint> findNearbyLocations(Location center, double radius) {
         return spatialIndex.findNearbyLocations(center, radius);
+    }
+
+    /**
+     * 获取所有位置点
+     *
+     * @return 所有位置点的列表，按关键字和名称排序
+     */
+    public List<LocationPoint> getAllLocationPoints() {
+        return locationPoints.values().stream()
+            .sorted((p1, p2) -> {
+                int keywordCompare = p1.getKeyword().compareToIgnoreCase(p2.getKeyword());
+                if (keywordCompare != 0) {
+                    return keywordCompare;
+                }
+                return p1.getName().compareToIgnoreCase(p2.getName());
+            })
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * 根据ID删除位置点
+     *
+     * @param sender 命令发送者
+     * @param id 位置点ID
+     * @return 是否删除成功
+     */
+    public boolean deleteLocationPoint(CommandSender sender, String id) {
+        LocationPoint point = locationPoints.get(id);
+        if (point == null) {
+            MessageUtil.sendMessage(sender, "&c未找到ID为 '" + id + "' 的位置点！");
+            return false;
+        }
+
+        // 从内存和空间索引中移除
+        locationPoints.remove(id);
+        spatialIndex.removeLocation(point);
+        saveLocationPoints();
+
+        MessageUtil.sendMessage(sender, String.format(
+            "&a成功删除位置点！\n" +
+            "&7ID: &f%s\n" +
+            "&7名称: &f%s\n" +
+            "&7关键字: &f%s\n" +
+            "&7位置: &f%s",
+            id, point.getName(), point.getKeyword(), point.getFormattedLocation()
+        ));
+
+        return true;
+    }
+
+    /**
+     * 根据ID获取位置点
+     *
+     * @param id 位置点ID
+     * @return 位置点，如果不存在则返回null
+     */
+    public LocationPoint getLocationPoint(String id) {
+        return locationPoints.get(id);
     }
 
     /**
