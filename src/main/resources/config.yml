@@ -1,6 +1,6 @@
 # ShopTools 配置文件
 # 作者: NSrank & Augment
-# 版本: 1.2
+# 版本: 1.2.5
 
 # 调试模式
 debug: false
@@ -25,6 +25,13 @@ cooldown:
   player-commands: 3
   # 管理员是否绕过冷却限制
   admin-bypass: true
+
+# 管理员功能设置
+admin:
+  # ban命令调试模式
+  # 启用时显示详细的删除和同步信息
+  # 禁用时只显示简洁的成功信息
+  ban-debug: false
 
 # 消息配置
 messages:

@@ -5,6 +5,7 @@ import org.plugin.shoptools.command.ShopToolsCommand;
 import org.plugin.shoptools.config.ConfigManager;
 import org.plugin.shoptools.integration.QuickShopIntegration;
 import org.plugin.shoptools.manager.LocationManager;
+import org.plugin.shoptools.manager.ShopBackupManager;
 import org.plugin.shoptools.storage.ShopDataManager;
 import org.plugin.shoptools.sync.DataSyncManager;
 
@@ -21,12 +22,13 @@ public final class ShopTools extends JavaPlugin {
     private LocationManager locationManager;
     private ShopDataManager dataManager;
     private DataSyncManager syncManager;
+    private ShopBackupManager backupManager;
     private ShopToolsCommand commandHandler;
 
     @Override
     public void onEnable() {
         getLogger().info("===================================");
-        getLogger().info("ShopTools v1.2.1 正在启动...");
+        getLogger().info("ShopTools v1.2.5 正在启动...");
         getLogger().info("作者：NSrank & Augment");
         getLogger().info("===================================");
 
@@ -40,7 +42,7 @@ public final class ShopTools extends JavaPlugin {
             // 延迟初始化QuickShop相关功能，确保QuickShop完全启动
             getServer().getScheduler().runTaskLater(this, this::initializeQuickShopIntegration, 60L); // 3秒延迟
 
-            getLogger().info("ShopTools v1.2.1 基础功能启动完成！");
+            getLogger().info("ShopTools v1.2.5 基础功能启动完成！");
             getLogger().info("正在等待QuickShop插件完全启动...");
 
         } catch (Exception e) {
@@ -69,7 +71,7 @@ public final class ShopTools extends JavaPlugin {
             // 更新命令处理器
             updateCommandHandler();
 
-            getLogger().info("ShopTools v1.2.1 完全启动完成！");
+            getLogger().info("ShopTools v1.2.5 完全启动完成！");
 
         } catch (Exception e) {
             getLogger().severe("QuickShop集成初始化失败: " + e.getMessage());
@@ -115,6 +117,10 @@ public final class ShopTools extends JavaPlugin {
         getLogger().info("初始化位置管理器...");
         locationManager = new LocationManager(this, configManager);
         getLogger().info("位置管理器初始化完成。");
+
+        getLogger().info("初始化商店备份管理器...");
+        backupManager = new ShopBackupManager(getDataFolder(), getLogger());
+        getLogger().info("商店备份管理器初始化完成。");
     }
 
     /**
@@ -212,5 +218,23 @@ public final class ShopTools extends JavaPlugin {
      */
     public DataSyncManager getSyncManager() {
         return syncManager;
+    }
+
+    /**
+     * 获取QuickShop集成实例
+     *
+     * @return QuickShop集成实例
+     */
+    public QuickShopIntegration getQuickShopIntegration() {
+        return quickShopIntegration;
+    }
+
+    /**
+     * 获取商店备份管理器
+     *
+     * @return 商店备份管理器实例
+     */
+    public ShopBackupManager getBackupManager() {
+        return backupManager;
     }
 }

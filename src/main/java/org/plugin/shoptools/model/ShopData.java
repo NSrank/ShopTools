@@ -136,6 +136,32 @@ public class ShopData {
         return Objects.hash(shopId);
     }
     
+    /**
+     * 检查商店是否售罄
+     *
+     * @return 如果商店售罄返回true
+     */
+    public boolean isOutOfStock() {
+        // 对于售卖商店，库存为0或负数表示售罄
+        if (shopType == ShopType.SELLING) {
+            return stock <= 0;
+        }
+        // 对于收购商店，不存在售罄概念
+        return false;
+    }
+
+    /**
+     * 获取库存状态文本
+     *
+     * @return 库存状态文本，如果售罄返回红色的"售罄"
+     */
+    public String getStockStatusText() {
+        if (isOutOfStock()) {
+            return "&c售罄";
+        }
+        return "";
+    }
+
     @Override
     public String toString() {
         return "ShopData{" +

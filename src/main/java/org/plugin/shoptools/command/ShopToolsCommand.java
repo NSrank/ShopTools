@@ -1,6 +1,7 @@
 package org.plugin.shoptools.command;
 
 import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -10,10 +11,13 @@ import org.plugin.shoptools.ShopTools;
 import org.plugin.shoptools.config.ConfigManager;
 import org.plugin.shoptools.data.LocationPoint;
 import org.plugin.shoptools.manager.LocationManager;
+import org.plugin.shoptools.manager.ShopBackupManager;
 import org.plugin.shoptools.model.ShopData;
 import org.plugin.shoptools.storage.ShopDataManager;
 import org.plugin.shoptools.util.DirectionUtil;
 import org.plugin.shoptools.util.MessageUtil;
+
+import org.maxgamer.quickshop.api.shop.Shop;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -119,6 +123,10 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
             case "dellocate":
                 handleDeleteLocationCommand(sender, args);
                 break;
+            case "ban":
+                handleBanCommand(sender, args);
+                break;
+
             case "reload":
                 handleReloadCommand(sender);
                 break;
@@ -483,6 +491,7 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
         for (ShopData shop : shops) {
             String ownerName = getPlayerName(shop.getOwnerId(), shop.getOwnerName());
             String shopStatus = getShopStatusText(shop.getShopType());
+            String stockStatus = shop.getStockStatusText(); // 获取库存状态
 
             String message = configManager.getMessage("shop-list-item")
                     .replace("{item}", shop.getItemDisplayName())
@@ -490,6 +499,11 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
                     .replace("{price}", shop.getFormattedPrice())
                     .replace("{owner}", ownerName)
                     .replace("{status}", shopStatus);
+
+            // 如果有库存状态（售罄），添加到消息末尾
+            if (!stockStatus.isEmpty()) {
+                message += " " + stockStatus;
+            }
 
             MessageUtil.sendMessage(sender, message);
         }
@@ -527,6 +541,7 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
             ShopData shop = shops.get(i);
             String ownerName = getPlayerName(shop.getOwnerId(), shop.getOwnerName());
             String shopStatus = getShopStatusText(shop.getShopType());
+            String stockStatus = shop.getStockStatusText(); // 获取库存状态
 
             String message = configManager.getMessage("shop-list-item")
                     .replace("{item}", shop.getItemDisplayName())
@@ -534,6 +549,11 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
                     .replace("{price}", shop.getFormattedPrice())
                     .replace("{owner}", ownerName)
                     .replace("{status}", shopStatus);
+
+            // 如果有库存状态（售罄），添加到消息末尾
+            if (!stockStatus.isEmpty()) {
+                message += " " + stockStatus;
+            }
 
             MessageUtil.sendMessage(sender, message);
         }
@@ -691,7 +711,7 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
     }
 
     /**
-     * 获取相似的玩家名建议
+     * 获取相似的玩家名建议（优化版本，避免主线程阻塞）
      *
      * @param searchTerm 搜索词
      * @return 相似玩家名列表
@@ -704,15 +724,20 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
         String normalizedSearch = searchTerm.toLowerCase();
         List<String> suggestions = new ArrayList<>();
 
-        // 获取所有唯一的玩家名
+        // 优化：使用缓存的玩家名，避免重复的磁盘I/O操作
         Set<String> playerNames = dataManager.getAllShops().stream()
-                .map(shop -> getPlayerName(shop.getOwnerId(), shop.getOwnerName()))
+                .map(shop -> shop.getOwnerName()) // 直接使用缓存的ownerName，避免调用getPlayerName
+                .filter(name -> name != null && !name.isEmpty())
                 .collect(Collectors.toSet());
 
         // 查找相似的名称（编辑距离算法简化版）
         for (String playerName : playerNames) {
-            if (playerName != null && isSimilar(normalizedSearch, playerName.toLowerCase())) {
+            if (isSimilar(normalizedSearch, playerName.toLowerCase())) {
                 suggestions.add(playerName);
+                // 限制处理数量，避免过多计算
+                if (suggestions.size() >= 10) {
+                    break;
+                }
             }
         }
 
@@ -936,6 +961,7 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
         for (ShopData shop : shops) {
             String ownerName = getPlayerName(shop.getOwnerId(), shop.getOwnerName());
             String shopStatus = getShopStatusText(shop.getShopType());
+            String stockStatus = shop.getStockStatusText(); // 获取库存状态
             String distanceText = getFormattedDistance(playerLocation, shop.getLocation());
 
             String message = configManager.getMessage("shop-list-item")
@@ -944,6 +970,11 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
                     .replace("{price}", distanceText)
                     .replace("{owner}", ownerName)
                     .replace("{status}", shopStatus);
+
+            // 如果有库存状态（售罄），添加到消息末尾
+            if (!stockStatus.isEmpty()) {
+                message += " " + stockStatus;
+            }
 
             MessageUtil.sendMessage(sender, message);
         }
@@ -982,6 +1013,7 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
             ShopData shop = shops.get(i);
             String ownerName = getPlayerName(shop.getOwnerId(), shop.getOwnerName());
             String shopStatus = getShopStatusText(shop.getShopType());
+            String stockStatus = shop.getStockStatusText(); // 获取库存状态
             String distanceText = getFormattedDistance(playerLocation, shop.getLocation());
 
             String message = configManager.getMessage("shop-list-item")
@@ -990,6 +1022,11 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
                     .replace("{price}", distanceText)
                     .replace("{owner}", ownerName)
                     .replace("{status}", shopStatus);
+
+            // 如果有库存状态（售罄），添加到消息末尾
+            if (!stockStatus.isEmpty()) {
+                message += " " + stockStatus;
+            }
 
             MessageUtil.sendMessage(sender, message);
         }
@@ -1023,6 +1060,8 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
             MessageUtil.sendMessage(sender, "&7/shoptools clocate <x,y,z|~,~,~> <点位名> <关键字> - 创建位置点 (管理员)");
             MessageUtil.sendMessage(sender, "&7/shoptools listlocate [页码] - 列出所有位置点 (管理员)");
             MessageUtil.sendMessage(sender, "&7/shoptools dellocate <ID> [confirm] - 删除位置点 (管理员)");
+            MessageUtil.sendMessage(sender, "&7/shoptools ban <玩家名> - 删除玩家的所有商店 (管理员)");
+            MessageUtil.sendMessage(sender, "&7/shoptools debug <storage|delete> - 调试QuickShop数据存储 (管理员)");
             MessageUtil.sendMessage(sender, configManager.getMessage("help-reload"));
         }
     }
@@ -1047,6 +1086,8 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
                 completions.add("clocate");
                 completions.add("listlocate");
                 completions.add("dellocate");
+                completions.add("ban");
+                completions.add("debug");
                 completions.add("reload");
             }
         } else if (args.length == 2) {
@@ -1114,6 +1155,30 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
                 List<LocationPoint> allPoints = locationManager.getAllLocationPoints();
                 for (LocationPoint point : allPoints) {
                     completions.add(point.getId());
+                }
+            } else if ("ban".equals(subCommand) && sender.hasPermission("shoptools.admin")) {
+                // 简化的玩家名补全（管理员命令）- 仅使用在线玩家避免磁盘I/O
+                String partial = args[1].toLowerCase();
+                for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
+                    if (onlinePlayer.getName().toLowerCase().startsWith(partial)) {
+                        completions.add(onlinePlayer.getName());
+                        if (completions.size() >= 5) break; // 限制数量
+                    }
+                }
+            } else if ("debug".equals(subCommand) && sender.hasPermission("shoptools.admin")) {
+                // debug子命令补全
+                if (args.length == 3) {
+                    completions.add("storage");
+                    completions.add("delete");
+                } else if (args.length == 4 && "delete".equals(args[2])) {
+                    // 玩家名补全
+                    String partial = args[3].toLowerCase();
+                    for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
+                        if (onlinePlayer.getName().toLowerCase().startsWith(partial)) {
+                            completions.add(onlinePlayer.getName());
+                            if (completions.size() >= 5) break;
+                        }
+                    }
                 }
             }
         } else if (args.length == 3) {
@@ -1547,4 +1612,280 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
             }
         }
     }
+
+    /**
+     * 处理ban命令（删除玩家的所有商店）
+     *
+     * @param sender 命令发送者
+     * @param args 命令参数
+     */
+    private void handleBanCommand(CommandSender sender, String[] args) {
+        // 检查管理员权限
+        if (!sender.hasPermission("shoptools.admin")) {
+            MessageUtil.sendMessage(sender, configManager.getMessage("no-permission"));
+            return;
+        }
+
+        if (args.length < 2) {
+            MessageUtil.sendMessage(sender, "&c用法: /shoptools ban <玩家名>");
+            MessageUtil.sendMessage(sender, "&7此命令将删除指定玩家的所有商店");
+            return;
+        }
+
+        String playerName = args[1];
+
+        // 检查QuickShop是否支持删除功能
+        if (!plugin.getQuickShopIntegration().supportsShopDeletion()) {
+            MessageUtil.sendMessage(sender, "&c抱歉，当前版本的QuickShop不支持商店删除功能！");
+            MessageUtil.sendMessage(sender, "&7此功能需要QuickShop提供官方的商店删除API");
+            MessageUtil.sendMessage(sender, "&7请联系服务器管理员升级QuickShop版本或使用QuickShop自带的删除命令");
+            return;
+        }
+
+        // 异步执行删除操作，避免主线程阻塞
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            try {
+                // 获取玩家UUID
+                UUID playerUUID = getPlayerUUID(playerName);
+                if (playerUUID == null) {
+                    MessageUtil.sendMessage(sender, "&c找不到玩家: " + playerName);
+                    return;
+                }
+
+                // 获取玩家的所有商店
+                List<Shop> playerShops = plugin.getQuickShopIntegration().getPlayerShops(playerUUID);
+                if (playerShops.isEmpty()) {
+                    MessageUtil.sendMessage(sender, "&c玩家 " + playerName + " 没有任何商店！");
+                    return;
+                }
+
+                // 创建备份数据
+                ShopBackupManager.PlayerBackupData backupData =
+                    new ShopBackupManager.PlayerBackupData(playerUUID, playerName, "管理员删除 - " + sender.getName());
+
+                List<ShopBackupManager.ShopBackupData> shopBackups = new ArrayList<>();
+
+                // 备份每个商店的数据
+                for (Shop shop : playerShops) {
+                    try {
+                        ShopBackupManager.ShopBackupData shopBackup = new ShopBackupManager.ShopBackupData(
+                            shop.toString(), // 使用toString作为ID
+                            shop.getOwner(),
+                            playerName,
+                            shop.getLocation(),
+                            shop.getItem().getType(),
+                            shop.getItem().getAmount(),
+                            shop.getPrice(),
+                            shop.getShopType().name(),
+                            "管理员删除"
+                        );
+                        shopBackups.add(shopBackup);
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("备份商店数据时发生错误: " + e.getMessage());
+                    }
+                }
+
+                backupData.setShops(shopBackups);
+
+                // 保存备份
+                boolean backupSuccess = plugin.getBackupManager().backupPlayerShops(backupData);
+                if (!backupSuccess) {
+                    MessageUtil.sendMessage(sender, "&c备份商店数据失败！操作已取消。");
+                    return;
+                }
+
+                // 检查命令发送者是否为玩家
+                if (!(sender instanceof Player)) {
+                    MessageUtil.sendMessage(sender, "&c此命令只能由玩家执行！");
+                    MessageUtil.sendMessage(sender, "&7原因：QuickShop的removeall命令需要玩家权限");
+                    return;
+                }
+
+                Player executor = (Player) sender;
+
+                // 回到主线程执行删除操作
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    // 使用QuickShop官方removeall命令进行批量删除
+                    executeQuickShopRemoveAll(executor, playerName, playerShops.size());
+                });
+
+            } catch (Exception e) {
+                plugin.getLogger().severe("执行ban命令时发生错误: " + e.getMessage());
+                MessageUtil.sendMessage(sender, "&c执行删除操作时发生错误，请检查服务器日志。");
+            }
+        });
+    }
+
+
+
+    /**
+     * 根据玩家名获取UUID
+     *
+     * @param playerName 玩家名
+     * @return 玩家UUID，如果找不到返回null
+     */
+    private UUID getPlayerUUID(String playerName) {
+        // 首先尝试在线玩家
+        Player onlinePlayer = Bukkit.getPlayer(playerName);
+        if (onlinePlayer != null) {
+            return onlinePlayer.getUniqueId();
+        }
+
+        // 尝试从离线玩家获取
+        try {
+            OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(playerName);
+            if (offlinePlayer.hasPlayedBefore()) {
+                return offlinePlayer.getUniqueId();
+            }
+        } catch (Exception e) {
+            plugin.getLogger().warning("获取玩家UUID时发生错误: " + e.getMessage());
+        }
+
+        return null;
+    }
+
+
+
+
+
+
+
+
+
+    /**
+     * 使用QuickShop官方removeall命令删除玩家的所有商店
+     *
+     * @param executor 执行命令的玩家
+     * @param playerName 被删除商店的玩家名
+     * @param shopCount 商店数量
+     */
+    private void executeQuickShopRemoveAll(Player executor, String playerName, int shopCount) {
+        boolean debugMode = plugin.getConfigManager().getBanDebug();
+
+        if (debugMode) {
+            MessageUtil.sendMessage(executor, String.format(
+                "&e开始使用QuickShop官方removeall命令删除玩家 &f%s &e的 &f%d &e个商店...",
+                playerName, shopCount
+            ));
+        }
+
+        try {
+            // 由玩家执行QuickShop的removeall命令
+            String command = "qs removeall " + playerName;
+            boolean success = executor.performCommand(command);
+
+            if (success) {
+                plugin.getLogger().info("玩家 " + executor.getName() + " 成功执行QuickShop removeall命令: " + command);
+
+                // 延迟发送成功消息，给QuickShop时间处理
+                Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                    if (debugMode) {
+                        MessageUtil.sendMessage(executor, String.format(
+                            "&a成功删除玩家 &f%s &a的商店！\n" +
+                            "&7使用QuickShop官方removeall命令\n" +
+                            "&7预计删除: &f%d &7个商店\n" +
+                            "&7备份文件已保存到 shop_backups 文件夹",
+                            playerName, shopCount
+                        ));
+                    } else {
+                        MessageUtil.sendMessage(executor, String.format(
+                            "&a成功删除玩家 &f%s &a的商店！",
+                            playerName
+                        ));
+                    }
+
+                    // 刷新ShopTools的商店清单
+                    refreshShopList(executor, playerName, debugMode);
+
+                    if (debugMode) {
+                        MessageUtil.sendMessage(executor, "&e建议重启服务器以确保删除效果完全生效！");
+                    }
+                }, 40L); // 延迟2秒发送完成消息
+
+            } else {
+                plugin.getLogger().warning("玩家 " + executor.getName() + " 执行QuickShop removeall命令失败: " + command);
+                MessageUtil.sendMessage(executor, "&c执行QuickShop删除命令失败！");
+                if (debugMode) {
+                    MessageUtil.sendMessage(executor, "&7可能原因：");
+                    MessageUtil.sendMessage(executor, "&7- 您没有QuickShop的removeall权限");
+                    MessageUtil.sendMessage(executor, "&7- 玩家名不存在或没有商店");
+                    MessageUtil.sendMessage(executor, "&7- QuickShop插件异常");
+                    MessageUtil.sendMessage(executor, "&7尝试的命令: &f" + command);
+                }
+            }
+
+        } catch (Exception e) {
+            plugin.getLogger().severe("执行QuickShop removeall命令时发生错误: " + e.getMessage());
+            MessageUtil.sendMessage(executor, "&c执行删除操作时发生错误，请检查服务器日志。");
+        }
+    }
+
+    /**
+     * 刷新ShopTools的商店清单并进行数据同步
+     *
+     * @param executor 执行命令的玩家
+     * @param playerName 被删除商店的玩家名
+     * @param debugMode 是否启用调试模式
+     */
+    private void refreshShopList(Player executor, String playerName, boolean debugMode) {
+        try {
+            if (debugMode) {
+                MessageUtil.sendMessage(executor, "&7正在同步商店数据...");
+            }
+
+            // 1. 重新初始化QuickShop连接
+            if (plugin.getQuickShopIntegration() != null) {
+                plugin.getQuickShopIntegration().reinitialize();
+                plugin.getLogger().info("已重新初始化QuickShop连接");
+            }
+
+            // 2. 进行数据同步 - 在主线程中重新从QuickShop读取所有商店数据
+            if (plugin.getDataManager() != null) {
+                // 延迟执行数据同步，给QuickShop时间处理删除操作
+                Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                    try {
+                        // 在主线程中从QuickShop重新获取所有商店数据
+                        List<ShopData> latestShopData = plugin.getQuickShopIntegration().getAllShops();
+
+                        // 异步更新ShopDataManager的缓存（这个操作可以异步）
+                        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+                            try {
+                                plugin.getDataManager().updateShopData(latestShopData);
+                                plugin.getLogger().info("商店数据同步完成，共同步 " + latestShopData.size() + " 个商店");
+
+                                // 回到主线程发送完成消息
+                                Bukkit.getScheduler().runTask(plugin, () -> {
+                                    MessageUtil.sendMessage(executor, "&a商店数据同步完成！");
+                                    if (debugMode) {
+                                        MessageUtil.sendMessage(executor, String.format("&7已从QuickShop重新读取 &f%d &7个商店数据", latestShopData.size()));
+                                    }
+                                });
+
+                            } catch (Exception e) {
+                                plugin.getLogger().warning("更新数据缓存时发生错误: " + e.getMessage());
+
+                                // 回到主线程发送错误消息
+                                Bukkit.getScheduler().runTask(plugin, () -> {
+                                    MessageUtil.sendMessage(executor, "&c数据缓存更新失败: " + e.getMessage());
+                                });
+                            }
+                        });
+
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("数据同步时发生错误: " + e.getMessage());
+                        MessageUtil.sendMessage(executor, "&c数据同步失败: " + e.getMessage());
+                        MessageUtil.sendMessage(executor, "&7建议重启服务器以确保数据一致性");
+                    }
+                }, 60L); // 延迟3秒执行，给QuickShop时间处理删除操作
+            } else {
+                MessageUtil.sendMessage(executor, "&c数据管理器不可用，无法进行数据同步");
+            }
+
+        } catch (Exception e) {
+            plugin.getLogger().warning("刷新商店清单时发生错误: " + e.getMessage());
+            MessageUtil.sendMessage(executor, "&c刷新商店清单时发生错误: " + e.getMessage());
+        }
+    }
+
+
 }

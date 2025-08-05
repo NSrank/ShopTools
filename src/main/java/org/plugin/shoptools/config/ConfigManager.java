@@ -127,6 +127,15 @@ public class ConfigManager {
     public long getSyncInterval() {
         return config.getLong("sync.interval", DEFAULT_SYNC_INTERVAL);
     }
+
+    /**
+     * 获取ban命令调试模式设置
+     *
+     * @return 是否启用ban命令调试模式
+     */
+    public boolean getBanDebug() {
+        return config.getBoolean("admin.ban-debug", false);
+    }
     
     public String getMessage(String key) {
         return config.getString("messages." + key, "&c消息配置错误: " + key);
