@@ -56,6 +56,7 @@ public class ShopToolsTest {
             "TestPlayer",
             ShopData.ShopType.SELLING,
             64,
+            false, // 测试商店为普通商店
             null
         );
         
@@ -117,6 +118,7 @@ public class ShopToolsTest {
             null,
             ShopData.ShopType.SELLING,
             0,
+            false, // 测试商店为普通商店
             null
         ));
         
@@ -156,6 +158,7 @@ public class ShopToolsTest {
             "TestPlayer",
             ShopData.ShopType.SELLING,
             64,
+            false, // 测试商店为普通商店
             null
         );
     }

@@ -143,11 +143,24 @@ public class QuickShopIntegration {
             double price = shop.getPrice();
             UUID ownerId = shop.getOwner();
             String ownerName = shop.getOwner().toString(); // 转换为字符串
-            int stock = shop.getRemainingStock();
-            
+
             // 转换商店类型
             ShopData.ShopType shopType = convertShopType(shop.getShopType());
-            
+
+            // 检测商店是否为无限状态
+            boolean isUnlimited = checkIfUnlimited(shop);
+
+            // 获取库存数量 - 对于无限商店，设置为-1表示无限库存
+            int stock;
+            if (isUnlimited) {
+                stock = -1; // 无限商店库存设为-1，避免不必要的库存检查
+            } else {
+                stock = shop.getRemainingStock();
+            }
+
+            // 如果是无限商店，将店主名称改为"系统商店"
+            String displayOwnerName = isUnlimited ? "系统商店" : ownerName;
+
             // 创建ShopData对象
             return new ShopData(
                 shopId,
@@ -156,9 +169,10 @@ public class QuickShopIntegration {
                 shop.getLocation(),
                 price,
                 ownerId,
-                ownerName,
+                displayOwnerName,
                 shopType,
                 stock,
+                isUnlimited,
                 shop.getItem()
             );
             
@@ -167,10 +181,73 @@ public class QuickShopIntegration {
             return null;
         }
     }
-    
+
+    /**
+     * 检测商店是否为无限状态
+     *
+     * @param shop 商店对象
+     * @return 是否为无限商店
+     */
+    private boolean checkIfUnlimited(Shop shop) {
+        try {
+            // 方法1: 尝试调用isUnlimited()方法
+            try {
+                java.lang.reflect.Method isUnlimitedMethod = shop.getClass().getMethod("isUnlimited");
+                Object result = isUnlimitedMethod.invoke(shop);
+                if (result instanceof Boolean) {
+                    return (Boolean) result;
+                }
+            } catch (Exception ignored) {}
+
+            // 方法2: 尝试调用getShopType()并检查是否包含UNLIMITED
+            try {
+                Object shopType = shop.getShopType();
+                if (shopType != null) {
+                    String shopTypeStr = shopType.toString().toUpperCase();
+                    if (shopTypeStr.contains("UNLIMITED") || shopTypeStr.contains("INFINITE")) {
+                        return true;
+                    }
+                }
+            } catch (Exception ignored) {}
+
+            // 方法3: 检查库存是否为-1（通常表示无限）
+            try {
+                int stock = shop.getRemainingStock();
+                if (stock == -1) {
+                    return true;
+                }
+            } catch (Exception ignored) {}
+
+            // 方法4: 尝试调用isUnlimitedShop()方法
+            try {
+                java.lang.reflect.Method isUnlimitedShopMethod = shop.getClass().getMethod("isUnlimitedShop");
+                Object result = isUnlimitedShopMethod.invoke(shop);
+                if (result instanceof Boolean) {
+                    return (Boolean) result;
+                }
+            } catch (Exception ignored) {}
+
+            // 方法5: 检查店主是否为特殊UUID（系统商店通常使用特殊UUID）
+            try {
+                UUID ownerId = shop.getOwner();
+                // 检查是否为全零UUID或特殊系统UUID
+                if (ownerId != null && (ownerId.equals(new UUID(0, 0)) ||
+                    ownerId.toString().equals("00000000-0000-0000-0000-000000000000"))) {
+                    return true;
+                }
+            } catch (Exception ignored) {}
+
+            return false;
+
+        } catch (Exception e) {
+            logger.warning("检测商店无限状态时发生错误: " + e.getMessage());
+            return false;
+        }
+    }
+
     /**
      * 获取物品显示名称
-     * 
+     *
      * @param shop 商店对象
      * @return 物品显示名称
      */

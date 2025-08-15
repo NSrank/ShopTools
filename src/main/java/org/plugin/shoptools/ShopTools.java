@@ -28,7 +28,7 @@ public final class ShopTools extends JavaPlugin {
     @Override
     public void onEnable() {
         getLogger().info("===================================");
-        getLogger().info("ShopTools v1.2.5 正在启动...");
+        getLogger().info("ShopTools v1.2.6 正在启动...");
         getLogger().info("作者：NSrank & Augment");
         getLogger().info("===================================");
 
@@ -42,7 +42,7 @@ public final class ShopTools extends JavaPlugin {
             // 延迟初始化QuickShop相关功能，确保QuickShop完全启动
             getServer().getScheduler().runTaskLater(this, this::initializeQuickShopIntegration, 60L); // 3秒延迟
 
-            getLogger().info("ShopTools v1.2.5 基础功能启动完成！");
+            getLogger().info("ShopTools v1.2.6 基础功能启动完成！");
             getLogger().info("正在等待QuickShop插件完全启动...");
 
         } catch (Exception e) {
@@ -71,7 +71,7 @@ public final class ShopTools extends JavaPlugin {
             // 更新命令处理器
             updateCommandHandler();
 
-            getLogger().info("ShopTools v1.2.5 完全启动完成！");
+            getLogger().info("ShopTools v1.2.6 完全启动完成！");
 
         } catch (Exception e) {
             getLogger().severe("QuickShop集成初始化失败: " + e.getMessage());

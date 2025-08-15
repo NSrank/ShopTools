@@ -389,6 +389,7 @@ public class ShopDataManager {
         public String ownerName;
         public String shopType;
         public int stock;
+        public boolean isUnlimited;
 
         public SimpleShopData() {
             // 默认构造函数，用于反序列化
@@ -412,6 +413,7 @@ public class ShopDataManager {
             this.ownerName = shopData.getOwnerName();
             this.shopType = shopData.getShopType().name();
             this.stock = shopData.getStock();
+            this.isUnlimited = shopData.isUnlimited();
         }
 
         public ShopData toShopData() {
@@ -438,6 +440,7 @@ public class ShopDataManager {
                 ownerName,
                 type,
                 stock,
+                isUnlimited, // 使用存储的无限状态
                 null // ItemStack设为null，避免序列化问题
             );
         }

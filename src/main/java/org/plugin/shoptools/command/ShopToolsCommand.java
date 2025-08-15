@@ -489,16 +489,18 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
 
         // 显示所有商店（不分页）
         for (ShopData shop : shops) {
-            String ownerName = getPlayerName(shop.getOwnerId(), shop.getOwnerName());
+            String ownerName = shop.isUnlimited() ? shop.getDisplayOwnerName() :
+                              getPlayerName(shop.getOwnerId(), shop.getOwnerName());
             String shopStatus = getShopStatusText(shop.getShopType());
             String stockStatus = shop.getStockStatusText(); // 获取库存状态
+            String shopTypeStatus = shop.getStatusDescription(); // 获取商店状态（无限/普通）
 
             String message = configManager.getMessage("shop-list-item")
                     .replace("{item}", shop.getItemDisplayName())
                     .replace("{location}", shop.getFormattedLocation())
                     .replace("{price}", shop.getFormattedPrice())
                     .replace("{owner}", ownerName)
-                    .replace("{status}", shopStatus);
+                    .replace("{status}", shopStatus + (shop.isUnlimited() ? " [" + shopTypeStatus + "]" : ""));
 
             // 如果有库存状态（售罄），添加到消息末尾
             if (!stockStatus.isEmpty()) {
@@ -539,16 +541,18 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
         // 显示当前页的商店
         for (int i = start; i < end; i++) {
             ShopData shop = shops.get(i);
-            String ownerName = getPlayerName(shop.getOwnerId(), shop.getOwnerName());
+            String ownerName = shop.isUnlimited() ? shop.getDisplayOwnerName() :
+                              getPlayerName(shop.getOwnerId(), shop.getOwnerName());
             String shopStatus = getShopStatusText(shop.getShopType());
             String stockStatus = shop.getStockStatusText(); // 获取库存状态
+            String shopTypeStatus = shop.getStatusDescription(); // 获取商店状态（无限/普通）
 
             String message = configManager.getMessage("shop-list-item")
                     .replace("{item}", shop.getItemDisplayName())
                     .replace("{location}", shop.getFormattedLocation())
                     .replace("{price}", shop.getFormattedPrice())
                     .replace("{owner}", ownerName)
-                    .replace("{status}", shopStatus);
+                    .replace("{status}", shopStatus + (shop.isUnlimited() ? " [" + shopTypeStatus + "]" : ""));
 
             // 如果有库存状态（售罄），添加到消息末尾
             if (!stockStatus.isEmpty()) {
@@ -959,9 +963,11 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
 
         // 显示所有商店（不分页）
         for (ShopData shop : shops) {
-            String ownerName = getPlayerName(shop.getOwnerId(), shop.getOwnerName());
+            String ownerName = shop.isUnlimited() ? shop.getDisplayOwnerName() :
+                              getPlayerName(shop.getOwnerId(), shop.getOwnerName());
             String shopStatus = getShopStatusText(shop.getShopType());
             String stockStatus = shop.getStockStatusText(); // 获取库存状态
+            String shopTypeStatus = shop.getStatusDescription(); // 获取商店状态（无限/普通）
             String distanceText = getFormattedDistance(playerLocation, shop.getLocation());
 
             String message = configManager.getMessage("shop-list-item")
@@ -969,7 +975,7 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
                     .replace("{location}", shop.getFormattedLocation())
                     .replace("{price}", distanceText)
                     .replace("{owner}", ownerName)
-                    .replace("{status}", shopStatus);
+                    .replace("{status}", shopStatus + (shop.isUnlimited() ? " [" + shopTypeStatus + "]" : ""));
 
             // 如果有库存状态（售罄），添加到消息末尾
             if (!stockStatus.isEmpty()) {
@@ -1011,9 +1017,11 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
         // 显示当前页的商店
         for (int i = start; i < end; i++) {
             ShopData shop = shops.get(i);
-            String ownerName = getPlayerName(shop.getOwnerId(), shop.getOwnerName());
+            String ownerName = shop.isUnlimited() ? shop.getDisplayOwnerName() :
+                              getPlayerName(shop.getOwnerId(), shop.getOwnerName());
             String shopStatus = getShopStatusText(shop.getShopType());
             String stockStatus = shop.getStockStatusText(); // 获取库存状态
+            String shopTypeStatus = shop.getStatusDescription(); // 获取商店状态（无限/普通）
             String distanceText = getFormattedDistance(playerLocation, shop.getLocation());
 
             String message = configManager.getMessage("shop-list-item")
@@ -1021,7 +1029,7 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
                     .replace("{location}", shop.getFormattedLocation())
                     .replace("{price}", distanceText)
                     .replace("{owner}", ownerName)
-                    .replace("{status}", shopStatus);
+                    .replace("{status}", shopStatus + (shop.isUnlimited() ? " [" + shopTypeStatus + "]" : ""));
 
             // 如果有库存状态（售罄），添加到消息末尾
             if (!stockStatus.isEmpty()) {

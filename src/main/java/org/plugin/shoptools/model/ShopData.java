@@ -34,6 +34,8 @@ public class ShopData {
     private final ShopType shopType;
     @Expose
     private final int stock;
+    @Expose
+    private final boolean isUnlimited;
     // 不序列化ItemStack，因为它可能包含复杂的内部结构
     private final ItemStack item;
     
@@ -48,7 +50,7 @@ public class ShopData {
     
     /**
      * 构造函数
-     * 
+     *
      * @param shopId 商店唯一ID
      * @param itemId 物品ID
      * @param itemDisplayName 物品显示名称
@@ -58,11 +60,12 @@ public class ShopData {
      * @param ownerName 店主名称
      * @param shopType 商店类型
      * @param stock 库存数量
+     * @param isUnlimited 是否为无限商店
      * @param item 物品堆栈
      */
-    public ShopData(UUID shopId, String itemId, String itemDisplayName, Location location, 
-                   double price, UUID ownerId, String ownerName, ShopType shopType, 
-                   int stock, ItemStack item) {
+    public ShopData(UUID shopId, String itemId, String itemDisplayName, Location location,
+                   double price, UUID ownerId, String ownerName, ShopType shopType,
+                   int stock, boolean isUnlimited, ItemStack item) {
         this.shopId = shopId;
         this.itemId = itemId;
         this.itemDisplayName = itemDisplayName;
@@ -72,6 +75,7 @@ public class ShopData {
         this.ownerName = ownerName;
         this.shopType = shopType;
         this.stock = stock;
+        this.isUnlimited = isUnlimited;
         this.item = item;
     }
     
@@ -85,7 +89,27 @@ public class ShopData {
     public String getOwnerName() { return ownerName; }
     public ShopType getShopType() { return shopType; }
     public int getStock() { return stock; }
+    public boolean isUnlimited() { return isUnlimited; }
     public ItemStack getItem() { return item; }
+
+    /**
+     * 获取显示用的店主名称
+     * 如果是无限商店，返回"系统商店"
+     *
+     * @return 显示用的店主名称
+     */
+    public String getDisplayOwnerName() {
+        return isUnlimited ? "系统商店" : ownerName;
+    }
+
+    /**
+     * 获取商店状态描述
+     *
+     * @return 商店状态（"无限" 或 "普通"）
+     */
+    public String getStatusDescription() {
+        return isUnlimited ? "无限" : "普通";
+    }
     
     /**
      * 获取格式化的位置字符串
@@ -142,6 +166,11 @@ public class ShopData {
      * @return 如果商店售罄返回true
      */
     public boolean isOutOfStock() {
+        // 无限商店（系统商店）永远不会售罄
+        if (isUnlimited) {
+            return false;
+        }
+
         // 对于售卖商店，库存为0或负数表示售罄
         if (shopType == ShopType.SELLING) {
             return stock <= 0;
