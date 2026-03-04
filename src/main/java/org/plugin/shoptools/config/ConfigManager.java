@@ -26,6 +26,7 @@ public class ConfigManager {
     private static final long DEFAULT_CACHE_EXPIRE_TIME = 300000L; // 5分钟
     private static final boolean DEFAULT_AUTO_SYNC = true;
     private static final long DEFAULT_SYNC_INTERVAL = 600000L; // 10分钟
+    private static final int DEFAULT_LOAD_THREADS = 0; // 0 = 自动检测（可用线程数 - 2）
     
     /**
      * 构造函数
@@ -63,6 +64,7 @@ public class ConfigManager {
         config.addDefault("cache.expire-time", DEFAULT_CACHE_EXPIRE_TIME);
         config.addDefault("sync.auto", DEFAULT_AUTO_SYNC);
         config.addDefault("sync.interval", DEFAULT_SYNC_INTERVAL);
+        config.addDefault("performance.load-threads", DEFAULT_LOAD_THREADS);
         
         // 消息配置
         config.addDefault("messages.prefix", "&6[ShopTools] &r");
@@ -135,6 +137,16 @@ public class ConfigManager {
      */
     public boolean getBanDebug() {
         return config.getBoolean("admin.ban-debug", false);
+    }
+
+    /**
+     * 获取商店加载线程数配置
+     * 0 表示自动检测（可用处理器数 - 2，最小为 1）
+     *
+     * @return 配置的线程数，0 表示自动
+     */
+    public int getLoadThreads() {
+        return config.getInt("performance.load-threads", DEFAULT_LOAD_THREADS);
     }
     
     public String getMessage(String key) {

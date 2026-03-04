@@ -1,6 +1,6 @@
 # ShopTools 配置文件
 # 作者: NSrank & Augment
-# 版本: 1.2.6
+# 版本: 1.2.7
 
 # 调试模式
 debug: false
@@ -25,6 +25,14 @@ cooldown:
   player-commands: 3
   # 管理员是否绕过冷却限制
   admin-bypass: true
+
+# 性能设置
+performance:
+  # 商店数据加载线程数
+  # 0 = 自动检测（可用处理器数 - 2，最小为 1）
+  # 正整数 = 指定使用的线程数
+  # 建议：普通服务器保持默认，大型服务器（10000+商店）可适当增加
+  load-threads: 0
 
 # 管理员功能设置
 admin:

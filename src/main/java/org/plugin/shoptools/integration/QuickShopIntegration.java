@@ -155,7 +155,8 @@ public class QuickShopIntegration {
             if (isUnlimited) {
                 stock = -1; // 无限商店库存设为-1，避免不必要的库存检查
             } else {
-                stock = shop.getRemainingStock();
+                // 只在区块已加载时读取库存，避免触发同步区块加载阻塞主线程
+                stock = getStockSafely(shop);
             }
 
             // 如果是无限商店，将店主名称改为"系统商店"
@@ -210,9 +211,9 @@ public class QuickShopIntegration {
                 }
             } catch (Exception ignored) {}
 
-            // 方法3: 检查库存是否为-1（通常表示无限）
+            // 方法3: 检查库存是否为-1（通常表示无限）- 仅在区块已加载时执行，避免阻塞主线程
             try {
-                int stock = shop.getRemainingStock();
+                int stock = getStockSafely(shop);
                 if (stock == -1) {
                     return true;
                 }
@@ -242,6 +243,34 @@ public class QuickShopIntegration {
         } catch (Exception e) {
             logger.warning("检测商店无限状态时发生错误: " + e.getMessage());
             return false;
+        }
+    }
+
+    /**
+     * 安全地获取商店库存，不触发同步区块加载
+     * <p>
+     * 仅当商店所在区块已经加载到内存时才调用 {@code getRemainingStock()}，
+     * 否则直接返回 0，避免主线程因同步加载区块而被阻塞。
+     *
+     * @param shop 商店对象
+     * @return 商店库存数量；区块未加载时返回 0
+     */
+    private int getStockSafely(Shop shop) {
+        try {
+            org.bukkit.Location loc = shop.getLocation();
+            if (loc == null || loc.getWorld() == null) {
+                return 0;
+            }
+            // 检查区块是否已加载，区块坐标 = 方块坐标 >> 4（除以16）
+            int chunkX = loc.getBlockX() >> 4;
+            int chunkZ = loc.getBlockZ() >> 4;
+            if (!loc.getWorld().isChunkLoaded(chunkX, chunkZ)) {
+                // 区块尚未加载，跳过库存读取以避免触发同步区块加载
+                return 0;
+            }
+            return shop.getRemainingStock();
+        } catch (Exception e) {
+            return 0;
         }
     }
 

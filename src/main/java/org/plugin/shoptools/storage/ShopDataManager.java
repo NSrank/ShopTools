@@ -5,16 +5,16 @@ import com.google.gson.reflect.TypeToken;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.plugin.Plugin;
 import org.plugin.shoptools.config.ConfigManager;
 import org.plugin.shoptools.model.ShopData;
 import org.plugin.shoptools.spatial.LocationSpatialIndex;
-import org.plugin.shoptools.spatial.OctreeStats;
 import org.plugin.shoptools.data.LocationPoint;
 
 import java.io.*;
 import java.lang.reflect.Type;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.*;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -66,9 +66,7 @@ public class ShopDataManager {
         if (!dataFolder.exists()) {
             dataFolder.mkdirs();
         }
-
-        // 加载现有数据
-        loadData();
+        // 注意：数据加载通过 loadDataAsync() 异步完成，不在构造函数中执行
     }
     
     /**
@@ -309,43 +307,140 @@ public class ShopDataManager {
     }
     
     /**
-     * 从文件加载数据
+     * 异步从文件加载商店数据（多线程加速，避免阻塞主线程）
+     * <p>
+     * 必须从主线程调用，内部会自动调度异步任务：
+     * <ol>
+     *   <li>主线程：捕获世界快照（避免在异步线程调用 Bukkit API）</li>
+     *   <li>异步线程：文件 I/O + JSON 解析 + ForkJoinPool 并行对象转换</li>
+     *   <li>主线程：重建内存缓存和空间索引</li>
+     * </ol>
+     *
+     * @param plugin 插件实例，用于调度 Bukkit 任务
      */
-    private void loadData() {
+    public void loadDataAsync(Plugin plugin) {
         if (!dataFile.exists()) {
             logger.info("商店数据文件不存在，将在首次同步后创建。");
             return;
         }
 
-        try (FileReader reader = new FileReader(dataFile)) {
-            Type listType = new TypeToken<List<SimpleShopData>>(){}.getType();
-            List<SimpleShopData> simpleShopList = gson.fromJson(reader, listType);
+        // 在主线程捕获世界快照，避免在异步线程中调用 Bukkit API
+        Map<String, World> worldSnapshot = new HashMap<>();
+        for (World world : Bukkit.getWorlds()) {
+            worldSnapshot.put(world.getName(), world);
+        }
 
-            if (simpleShopList != null && !simpleShopList.isEmpty()) {
-                List<ShopData> shopList = new ArrayList<>();
+        // 确定并行线程数
+        int configThreads = configManager.getLoadThreads();
+        int threadCount = (configThreads <= 0)
+                ? Math.max(1, Runtime.getRuntime().availableProcessors() - 2)
+                : configThreads;
 
-                // 转换为ShopData对象
-                for (SimpleShopData simpleShop : simpleShopList) {
-                    try {
-                        ShopData shopData = simpleShop.toShopData();
-                        shopList.add(shopData);
-                    } catch (Exception e) {
-                        logger.warning("转换商店数据时发生错误: " + e.getMessage());
-                    }
+        logger.info("开始异步加载商店数据，使用 " + threadCount + " 个线程...");
+        final long startTime = System.currentTimeMillis();
+
+        // 切换到异步线程执行文件 I/O 和数据解析
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            try (FileReader reader = new FileReader(dataFile)) {
+                Type listType = new TypeToken<List<SimpleShopData>>(){}.getType();
+                List<SimpleShopData> simpleShopList = gson.fromJson(reader, listType);
+
+                if (simpleShopList == null || simpleShopList.isEmpty()) {
+                    logger.info("商店数据文件为空。");
+                    return;
                 }
 
-                updateShopData(shopList);
-                logger.info("从文件加载了 " + shopList.size() + " 个商店数据。");
-            } else {
-                logger.info("商店数据文件为空。");
+                logger.info("已解析 " + simpleShopList.size() + " 条记录，开始并行转换（" + threadCount + " 线程）...");
+
+                // 使用 ForkJoinPool 并行将 SimpleShopData 转换为 ShopData
+                ForkJoinPool forkJoinPool = new ForkJoinPool(threadCount);
+                List<ShopData> shopList;
+                try {
+                    shopList = forkJoinPool.submit(() ->
+                        simpleShopList.parallelStream()
+                            .map(simpleShop -> {
+                                try {
+                                    // 使用世界快照，避免在异步线程调用 Bukkit API
+                                    return simpleShop.toShopData(worldSnapshot);
+                                } catch (Exception e) {
+                                    logger.warning("转换商店数据时发生错误: " + e.getMessage());
+                                    return null;
+                                }
+                            })
+                            .filter(Objects::nonNull)
+                            .collect(Collectors.toList())
+                    ).get();
+                } finally {
+                    forkJoinPool.shutdown();
+                }
+
+                long parseTime = System.currentTimeMillis() - startTime;
+                final List<ShopData> finalShopList = shopList;
+                logger.info("并行转换完成，共 " + finalShopList.size() + " 个商店，耗时 " + parseTime + "ms，切回主线程重建缓存...");
+
+                // 切回主线程重建内存缓存，保证线程安全
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    rebuildCachesOnly(finalShopList);
+                    long totalTime = System.currentTimeMillis() - startTime;
+                    logger.info("商店数据加载完成！共加载 " + shopCache.size() + " 个商店，总耗时 " + totalTime + "ms。");
+                });
+
+            } catch (IOException e) {
+                logger.severe("加载商店数据时发生 I/O 错误: " + e.getMessage());
+                e.printStackTrace();
+            } catch (Exception e) {
+                logger.severe("解析商店数据时发生错误: " + e.getMessage());
+                e.printStackTrace();
             }
-        } catch (IOException e) {
-            logger.severe("加载商店数据时发生错误: " + e.getMessage());
-            e.printStackTrace();
-        } catch (Exception e) {
-            logger.severe("解析商店数据时发生错误: " + e.getMessage());
-            e.printStackTrace();
+        });
+    }
+
+    /**
+     * 仅从商店数据列表重建内存缓存，不写入文件
+     * <p>
+     * 用于从磁盘加载后填充缓存，避免不必要的写回操作。
+     * 必须在主线程调用。
+     *
+     * @param shopList 商店数据列表
+     */
+    private void rebuildCachesOnly(List<ShopData> shopList) {
+        // 清空旧缓存和空间索引
+        clearCache();
+
+        for (ShopData shopData : shopList) {
+            if (shopData == null) continue;
+
+            // 添加到主缓存
+            shopCache.put(shopData.getShopId(), shopData);
+
+            // 添加到物品缓存
+            String itemId = shopData.getItemId();
+            if (itemId != null) {
+                itemCache.computeIfAbsent(itemId.toLowerCase(), k -> new ArrayList<>()).add(shopData);
+            }
+
+            // 添加到店主缓存
+            ownerCache.computeIfAbsent(shopData.getOwnerId(), k -> new ArrayList<>()).add(shopData);
+
+            // 添加到空间索引
+            Location shopLocation = shopData.getLocation();
+            if (shopLocation != null && shopLocation.getWorld() != null) {
+                LocationPoint tempPoint = new LocationPoint(
+                    shopData.getShopId().toString(),
+                    "shop_" + shopData.getItemId(),
+                    shopData.getItemId(),
+                    shopLocation.getWorld().getName(),
+                    shopLocation.getX(),
+                    shopLocation.getY(),
+                    shopLocation.getZ(),
+                    "system"
+                );
+                spatialIndex.addLocation(tempPoint);
+            }
         }
+
+        this.lastUpdateTime = System.currentTimeMillis();
+        this.isDataLoaded = true;
     }
     
     /**
@@ -416,13 +511,19 @@ public class ShopDataManager {
             this.isUnlimited = shopData.isUnlimited();
         }
 
-        public ShopData toShopData() {
+        /**
+         * 将简化数据转换为 ShopData（使用世界快照，适合在异步线程调用）
+         *
+         * @param worldMap 世界名称到 World 对象的映射快照（主线程提前采集）
+         * @return 完整的 ShopData 对象
+         */
+        public ShopData toShopData(Map<String, World> worldMap) {
             UUID shopUUID = UUID.fromString(shopId);
             UUID ownerUUID = UUID.fromString(ownerId);
 
             Location location = null;
             if (worldName != null) {
-                World world = Bukkit.getWorld(worldName);
+                World world = worldMap.get(worldName);
                 if (world != null) {
                     location = new Location(world, x, y, z);
                 }
@@ -431,17 +532,8 @@ public class ShopDataManager {
             ShopData.ShopType type = ShopData.ShopType.valueOf(shopType);
 
             return new ShopData(
-                shopUUID,
-                itemId,
-                itemDisplayName,
-                location,
-                price,
-                ownerUUID,
-                ownerName,
-                type,
-                stock,
-                isUnlimited, // 使用存储的无限状态
-                null // ItemStack设为null，避免序列化问题
+                shopUUID, itemId, itemDisplayName, location,
+                price, ownerUUID, ownerName, type, stock, isUnlimited, null
             );
         }
     }
