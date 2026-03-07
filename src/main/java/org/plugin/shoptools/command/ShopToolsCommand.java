@@ -492,7 +492,6 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
             String ownerName = shop.isUnlimited() ? shop.getDisplayOwnerName() :
                               getPlayerName(shop.getOwnerId(), shop.getOwnerName());
             String shopStatus = getShopStatusText(shop.getShopType());
-            String stockStatus = shop.getStockStatusText(); // 获取库存状态
             String shopTypeStatus = shop.getStatusDescription(); // 获取商店状态（无限/普通）
 
             String message = configManager.getMessage("shop-list-item")
@@ -501,11 +500,6 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
                     .replace("{price}", shop.getFormattedPrice())
                     .replace("{owner}", ownerName)
                     .replace("{status}", shopStatus + (shop.isUnlimited() ? " [" + shopTypeStatus + "]" : ""));
-
-            // 如果有库存状态（售罄），添加到消息末尾
-            if (!stockStatus.isEmpty()) {
-                message += " " + stockStatus;
-            }
 
             MessageUtil.sendMessage(sender, message);
         }
@@ -544,7 +538,6 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
             String ownerName = shop.isUnlimited() ? shop.getDisplayOwnerName() :
                               getPlayerName(shop.getOwnerId(), shop.getOwnerName());
             String shopStatus = getShopStatusText(shop.getShopType());
-            String stockStatus = shop.getStockStatusText(); // 获取库存状态
             String shopTypeStatus = shop.getStatusDescription(); // 获取商店状态（无限/普通）
 
             String message = configManager.getMessage("shop-list-item")
@@ -553,11 +546,6 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
                     .replace("{price}", shop.getFormattedPrice())
                     .replace("{owner}", ownerName)
                     .replace("{status}", shopStatus + (shop.isUnlimited() ? " [" + shopTypeStatus + "]" : ""));
-
-            // 如果有库存状态（售罄），添加到消息末尾
-            if (!stockStatus.isEmpty()) {
-                message += " " + stockStatus;
-            }
 
             MessageUtil.sendMessage(sender, message);
         }
@@ -966,7 +954,6 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
             String ownerName = shop.isUnlimited() ? shop.getDisplayOwnerName() :
                               getPlayerName(shop.getOwnerId(), shop.getOwnerName());
             String shopStatus = getShopStatusText(shop.getShopType());
-            String stockStatus = shop.getStockStatusText(); // 获取库存状态
             String shopTypeStatus = shop.getStatusDescription(); // 获取商店状态（无限/普通）
             String distanceText = getFormattedDistance(playerLocation, shop.getLocation());
 
@@ -976,11 +963,6 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
                     .replace("{price}", distanceText)
                     .replace("{owner}", ownerName)
                     .replace("{status}", shopStatus + (shop.isUnlimited() ? " [" + shopTypeStatus + "]" : ""));
-
-            // 如果有库存状态（售罄），添加到消息末尾
-            if (!stockStatus.isEmpty()) {
-                message += " " + stockStatus;
-            }
 
             MessageUtil.sendMessage(sender, message);
         }
@@ -1020,7 +1002,6 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
             String ownerName = shop.isUnlimited() ? shop.getDisplayOwnerName() :
                               getPlayerName(shop.getOwnerId(), shop.getOwnerName());
             String shopStatus = getShopStatusText(shop.getShopType());
-            String stockStatus = shop.getStockStatusText(); // 获取库存状态
             String shopTypeStatus = shop.getStatusDescription(); // 获取商店状态（无限/普通）
             String distanceText = getFormattedDistance(playerLocation, shop.getLocation());
 
@@ -1030,11 +1011,6 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
                     .replace("{price}", distanceText)
                     .replace("{owner}", ownerName)
                     .replace("{status}", shopStatus + (shop.isUnlimited() ? " [" + shopTypeStatus + "]" : ""));
-
-            // 如果有库存状态（售罄），添加到消息末尾
-            if (!stockStatus.isEmpty()) {
-                message += " " + stockStatus;
-            }
 
             MessageUtil.sendMessage(sender, message);
         }

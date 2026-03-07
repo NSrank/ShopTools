@@ -28,7 +28,7 @@ public final class ShopTools extends JavaPlugin {
     @Override
     public void onEnable() {
         getLogger().info("===================================");
-        getLogger().info("ShopTools v1.2.7 正在启动...");
+        getLogger().info("ShopTools v1.2.8 正在启动...");
         getLogger().info("作者：NSrank & Augment");
         getLogger().info("===================================");
 

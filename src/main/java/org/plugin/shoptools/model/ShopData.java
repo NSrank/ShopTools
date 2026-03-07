@@ -162,32 +162,25 @@ public class ShopData {
     
     /**
      * 检查商店是否售罄
+     * <p>
+     * 由于 QuickShop 的库存数据依赖区块加载（实时读取箱子方块实体），
+     * 无法在不阻塞主线程的情况下可靠获取，因此已停用库存检查。
+     * 本方法始终返回 {@code false}，保留接口以保证 API 兼容性。
      *
-     * @return 如果商店售罄返回true
+     * @return 始终返回 {@code false}
      */
     public boolean isOutOfStock() {
-        // 无限商店（系统商店）永远不会售罄
-        if (isUnlimited) {
-            return false;
-        }
-
-        // 对于售卖商店，库存为0或负数表示售罄
-        if (shopType == ShopType.SELLING) {
-            return stock <= 0;
-        }
-        // 对于收购商店，不存在售罄概念
         return false;
     }
 
     /**
      * 获取库存状态文本
+     * <p>
+     * 库存检查已停用，始终返回空字符串。
      *
-     * @return 库存状态文本，如果售罄返回红色的"售罄"
+     * @return 空字符串
      */
     public String getStockStatusText() {
-        if (isOutOfStock()) {
-            return "&c售罄";
-        }
         return "";
     }
 
