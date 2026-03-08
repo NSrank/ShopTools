@@ -30,7 +30,7 @@ public final class ShopTools extends JavaPlugin {
     @Override
     public void onEnable() {
         getLogger().info("===================================");
-        getLogger().info("ShopTools v1.3.0 正在启动...");
+        getLogger().info("ShopTools v1.3.1 正在启动...");
         getLogger().info("作者：NSrank & Augment");
         getLogger().info("===================================");
 
@@ -44,7 +44,7 @@ public final class ShopTools extends JavaPlugin {
             // 延迟初始化QuickShop相关功能，确保QuickShop完全启动
             getServer().getScheduler().runTaskLater(this, this::initializeQuickShopIntegration, 60L); // 3秒延迟
 
-            getLogger().info("ShopTools v1.3.0 基础功能启动完成！");
+            getLogger().info("ShopTools v1.3.1 基础功能启动完成！");
             getLogger().info("正在等待QuickShop插件完全启动...");
 
         } catch (Exception e) {
@@ -73,7 +73,7 @@ public final class ShopTools extends JavaPlugin {
             // 更新命令处理器
             updateCommandHandler();
 
-            getLogger().info("ShopTools v1.3.0 完全启动完成！");
+            getLogger().info("ShopTools v1.3.1 完全启动完成！");
 
         } catch (Exception e) {
             getLogger().severe("QuickShop集成初始化失败: " + e.getMessage());
@@ -206,6 +206,31 @@ public final class ShopTools extends JavaPlugin {
             return syncManager.performManualSync();
         }
         return false;
+    }
+
+    /**
+     * 触发一次库存重新扫描。
+     * <p>
+     * 停止当前正在运行的扫描队列（如有），然后创建新队列并立即开始扫描。
+     * 使用 5 tick 的短初始延迟，适合同步完成后或 reload 后调用。
+     * 必须从主线程调用。
+     */
+    public void triggerStockScan() {
+        if (!configManager.isStockScanEnabled()) {
+            return;
+        }
+        if (dataManager == null || quickShopIntegration == null) {
+            return;
+        }
+        // 停止旧的扫描队列（若仍在运行）
+        if (stockScanQueue != null) {
+            stockScanQueue.stop();
+        }
+        // 创建新队列并以 5 tick 短延迟启动，避免数据还未写入缓存就开始扫描
+        stockScanQueue = new StockScanQueue(
+                this, quickShopIntegration, dataManager, configManager, getLogger());
+        stockScanQueue.start(dataManager.getAllShops(), null, 5L);
+        getLogger().info("库存重新扫描已触发（" + dataManager.getShopCount() + " 家商店）。");
     }
 
     /**

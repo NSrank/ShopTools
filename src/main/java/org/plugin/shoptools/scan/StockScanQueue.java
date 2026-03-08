@@ -82,7 +82,7 @@ public class StockScanQueue {
     }
 
     /**
-     * 启动库存扫描。
+     * 启动库存扫描（服务器启动时调用，等待 40 tick 待世界稳定后开始）。
      * <p>
      * 必须从主线程调用。内部将商店按区块分组后启动定时分批处理。
      *
@@ -90,6 +90,19 @@ public class StockScanQueue {
      * @param onComplete 扫描全部完成后的回调（在主线程执行）
      */
     public void start(List<ShopData> allShops, Runnable onComplete) {
+        start(allShops, onComplete, 40L);
+    }
+
+    /**
+     * 启动库存扫描（可指定初始等待 tick 数）。
+     * <p>
+     * 周期同步或 reload 触发的重新扫描应使用较短的初始延迟（如 5L）。
+     *
+     * @param allShops          需要扫描库存的商店列表
+     * @param onComplete        扫描完成后的回调；为 {@code null} 时忽略
+     * @param initialDelayTicks 首次处理前等待的 tick 数
+     */
+    public void start(List<ShopData> allShops, Runnable onComplete, long initialDelayTicks) {
         if (!configManager.isStockScanEnabled()) {
             logger.info("库存扫描已在配置中禁用，跳过。");
             return;
@@ -127,11 +140,15 @@ public class StockScanQueue {
         logger.info(String.format("库存扫描队列已就绪：共 %d 个区块（%d 家商店），跳过 %d 家无限/收购商店。",
                 queue.size(), allShops.size() - skippedUnlimited, skippedUnlimited));
 
-        startTicker();
+        startTicker(initialDelayTicks);
     }
 
-    /** 启动定时处理器（主线程） */
-    private void startTicker() {
+    /**
+     * 启动定时处理器（主线程）。
+     *
+     * @param initialDelayTicks 首次处理前等待的 tick 数
+     */
+    private void startTicker(long initialDelayTicks) {
         int tickDelay = configManager.getStockScanTickDelay();
         int chunksPerTick = configManager.getStockScanChunksPerTick();
 
@@ -155,7 +172,7 @@ public class StockScanQueue {
                     dispatched++;
                 }
             }
-        }.runTaskTimer(plugin, 40L, tickDelay); // 延迟 40 tick（2秒）后开始，等待世界加载稳定
+        }.runTaskTimer(plugin, initialDelayTicks, tickDelay);
     }
 
     /**

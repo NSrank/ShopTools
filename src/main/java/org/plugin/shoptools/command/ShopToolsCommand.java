@@ -465,14 +465,15 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
         }
         
         MessageUtil.sendMessage(sender, "&a正在重新加载配置和数据...");
-        
+
         // 重新加载配置
         configManager.reloadConfig();
-        
-        // 重新同步数据
+
+        // 重新同步数据，并触发库存重新扫描
         plugin.syncShopData();
-        
-        MessageUtil.sendMessage(sender, "&a重新加载完成！");
+
+        MessageUtil.sendMessage(sender, "&a重新加载完成！商店元数据已更新。");
+        MessageUtil.sendMessage(sender, "&7库存信息正在后台重新扫描，稍后即可在查询结果中看到最新售罄状态。");
     }
     
     /**

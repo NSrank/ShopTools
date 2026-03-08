@@ -77,7 +77,7 @@ public class DataSyncManager {
     }
     
     /**
-     * 执行初始同步
+     * 执行初始同步（不触发库存扫描，启动时已由 loadDataAsync 回调启动扫描）
      */
     private void performInitialSync() {
         logger.info("开始执行初始数据同步...");
@@ -90,7 +90,7 @@ public class DataSyncManager {
         // 在主线程执行同步操作
         Bukkit.getScheduler().runTask(plugin, () -> {
             try {
-                syncShopData();
+                syncShopData(false); // 初始扫描已由 loadDataAsync 回调负责，此处不重复触发
                 isInitialSyncCompleted = true;
                 logger.info("初始数据同步完成。");
             } catch (Exception e) {
@@ -99,23 +99,21 @@ public class DataSyncManager {
             }
         });
     }
-    
+
     /**
-     * 启动定期同步任务
+     * 启动定期同步任务（每次同步完成后同时触发库存重新扫描）
      */
     private void startPeriodicSync() {
         long interval = configManager.getSyncInterval() / 1000 * 20; // 转换为tick
-        
+
         logger.info("启动定期数据同步，间隔: " + (interval / 20) + " 秒");
-        
+
         syncTask = new BukkitRunnable() {
             @Override
             public void run() {
                 if (!isSyncing && quickShopIntegration.isQuickShopAvailable()) {
-                    // 在主线程执行同步
                     try {
-                        syncShopData();
-
+                        syncShopData(true); // 周期同步完成后触发库存重新扫描
                         if (configManager.isDebugEnabled()) {
                             logger.info("定期数据同步完成。");
                         }
@@ -131,7 +129,7 @@ public class DataSyncManager {
     }
     
     /**
-     * 手动执行数据同步
+     * 手动执行数据同步（同时触发库存重新扫描，适用于 reload 指令）
      *
      * @return 同步是否成功
      */
@@ -148,11 +146,9 @@ public class DataSyncManager {
 
         logger.info("开始手动数据同步...");
 
-        // 检查是否在主线程
         if (Bukkit.isPrimaryThread()) {
-            // 已经在主线程，直接执行
             try {
-                syncShopData();
+                syncShopData(true); // 手动同步（含 reload）完成后触发库存重新扫描
                 logger.info("手动数据同步完成。");
                 return true;
             } catch (Exception e) {
@@ -161,49 +157,53 @@ public class DataSyncManager {
                 return false;
             }
         } else {
-            // 不在主线程，切换到主线程执行
             Bukkit.getScheduler().runTask(plugin, () -> {
                 try {
-                    syncShopData();
+                    syncShopData(true);
                     logger.info("手动数据同步完成。");
                 } catch (Exception e) {
                     logger.severe("手动数据同步失败: " + e.getMessage());
                     e.printStackTrace();
                 }
             });
-            return true; // 异步执行，假设成功
+            return true;
         }
     }
-    
+
     /**
-     * 执行商店数据同步
+     * 执行商店数据同步。
+     *
+     * @param triggerStockScan 同步成功后是否触发库存重新扫描
      */
-    private void syncShopData() {
+    private void syncShopData(boolean triggerStockScan) {
         if (isSyncing) {
             return;
         }
-        
+
         isSyncing = true;
-        
+
         try {
             long startTime = System.currentTimeMillis();
-            
+
             // 从QuickShop获取所有商店数据
             List<ShopData> shopDataList = quickShopIntegration.getAllShops();
-            
+
             if (shopDataList == null || shopDataList.isEmpty()) {
                 logger.warning("未获取到任何商店数据。");
                 return;
             }
-            
-            // 更新数据管理器中的数据
+
+            // 更新数据管理器中的数据（内部会恢复已扫描库存快照）
             dataManager.updateShopData(shopDataList);
-            
-            long endTime = System.currentTimeMillis();
-            long duration = endTime - startTime;
-            
+
+            long duration = System.currentTimeMillis() - startTime;
             logger.info("数据同步完成，耗时: " + duration + "ms，同步了 " + shopDataList.size() + " 个商店。");
-            
+
+            // 同步完成后触发库存重新扫描，确保库存信息及时更新
+            if (triggerStockScan) {
+                plugin.triggerStockScan();
+            }
+
         } finally {
             isSyncing = false;
         }
