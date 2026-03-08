@@ -144,6 +144,30 @@ messages:
 
 ## 更新日志
 
+### v1.3.0 (2026-03-08)
+
+#### 🚀 新增功能
+- **异步库存扫描**：整合 FinderTools-Lib 的区块异步加载机制，插件启动后在后台逐区块扫描商店真实库存，全程不阻塞主线程
+- **售罄状态恢复**：`/st search` 及 `/st near` 命令的商店列表重新支持 `&c售罄` 标识，在扫描确认后准确显示
+- **可配置扫描速率**：新增 `performance.stock-scan` 配置节，支持调节每批次区块数和批次间隔，平衡扫描速度与服务器压力
+
+#### 🔧 技术改进
+- **`StockScanQueue` 核心队列**：按 `(世界, 区块X, 区块Z)` 对商店分组后入队，BukkitRunnable 定时分批调用 `getChunkAtAsync(generate=false)`；对于已加载区块直接读取，未加载区块在主线程异步回调中读取后立即卸载，节省内存
+- **`locationIndex` 位置索引**：`ShopDataManager` 新增以 `"world:blockX:blockY:blockZ"` 为键的位置索引，`StockScanQueue` 通过 `updateStockByLocation()` 直接命中当前缓存对象，彻底消除"孤儿引用"问题
+- **库存快照恢复机制**：`updateShopData()` 在全量同步前对已确认库存做快照，重建缓存后按位置恢复，确保库存数据跨同步周期不丢失
+- **`stockKnown` 扫描哨兵**：`ShopData` 新增非持久化字段，扫描完成前 `isOutOfStock()` 始终返回 `false`，杜绝启动时因库存未知而产生的误报
+
+#### 🐛 问题修复
+- **修复库存永远不更新**：修复 `StockScanQueue` 更新孤儿 `ShopData` 引用（缓存已被同步替换）导致库存写入无效的问题
+- **修复同步覆盖库存**：修复 `DataSyncManager` 每次全量同步时以 `stock=0, stockKnown=false` 覆盖所有缓存，导致售罄标识永远不显示的问题
+- **修复 region 文件预检**：扫描前检查 `.mca` 文件是否存在，跳过未生成区块的无效加载请求
+
+#### ⚙️ 配置变更
+- 新增 `performance.stock-scan` 配置节
+  - `enabled`（默认 `true`）：是否启用启动时库存扫描
+  - `chunks-per-tick`（默认 `3`）：每批次处理的最大区块数
+  - `tick-delay`（默认 `5`）：两批次之间的间隔 tick 数（5 tick ≈ 每秒约扫描 60 个区块）
+
 ### v1.2.8 (2026-03-07)
 
 #### 🔧 技术改进

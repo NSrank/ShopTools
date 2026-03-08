@@ -302,6 +302,26 @@ public class QuickShopIntegration {
     }
 
     /**
+     * 根据位置从 QuickShop 获取商店对象。
+     * <p>
+     * 必须在主线程调用（区块需已加载）。用于 StockScanQueue 在区块加载后读取真实库存。
+     *
+     * @param location 商店所在位置
+     * @return QuickShop 的 Shop 对象；未找到或出错时返回 {@code null}
+     */
+    public Shop getShopAtLocation(org.bukkit.Location location) {
+        if (!isQuickShopAvailable() || location == null) {
+            return null;
+        }
+        try {
+            return quickShopAPI.getShopManager().getShop(location);
+        } catch (Exception e) {
+            logger.warning("按位置查找商店失败: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
      * 检查QuickShop API是否支持删除商店功能
      *
      * @return 如果支持删除功能返回true

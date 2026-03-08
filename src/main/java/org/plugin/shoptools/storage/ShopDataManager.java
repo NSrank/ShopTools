@@ -35,6 +35,8 @@ public class ShopDataManager {
     private final Map<UUID, ShopData> shopCache = new ConcurrentHashMap<>();
     private final Map<String, List<ShopData>> itemCache = new ConcurrentHashMap<>();
     private final Map<UUID, List<ShopData>> ownerCache = new ConcurrentHashMap<>();
+    /** 按 "world:blockX:blockY:blockZ" 快速定位 ShopData，供 StockScanQueue 原地更新库存 */
+    private final Map<String, ShopData> locationIndex = new ConcurrentHashMap<>();
 
     // 空间索引系统
     private final LocationSpatialIndex spatialIndex;
@@ -70,38 +72,62 @@ public class ShopDataManager {
     }
     
     /**
-     * 更新商店数据
-     * 
-     * @param shopDataList 新的商店数据列表
+     * 更新商店数据（来自 DataSyncManager 的全量同步）。
+     * <p>
+     * 在清空缓存前，会先对已扫描的库存信息做快照；重建完成后自动恢复，
+     * 确保 {@link org.plugin.shoptools.scan.StockScanQueue} 写入的库存数据
+     * 不会被每次同步冲掉。
+     *
+     * @param shopDataList 从 QuickShop 获取的最新商店数据列表
      */
     public void updateShopData(List<ShopData> shopDataList) {
         if (shopDataList == null) {
             logger.warning("尝试更新空的商店数据列表！");
             return;
         }
-        
+
         logger.info("开始更新商店数据，共 " + shopDataList.size() + " 个商店...");
-        
-        // 清空缓存
+
+        // ── 第一步：快照已扫描的库存数据，key = "world:x:y:z" ──────────────────
+        // 由于 convertShopToShopData 无法在同步时读取库存（需加载区块），
+        // 必须在替换缓存前将现有的已确认库存保存下来，供后续恢复。
+        Map<String, Integer> stockSnapshot = new HashMap<>();
+        for (ShopData existing : shopCache.values()) {
+            if (existing.isStockKnown()) {
+                String key = locationKey(existing.getLocation());
+                if (key != null) {
+                    stockSnapshot.put(key, existing.getStock());
+                }
+            }
+        }
+        if (!stockSnapshot.isEmpty()) {
+            logger.info("已快照 " + stockSnapshot.size() + " 家商店的库存数据，将在同步后恢复。");
+        }
+
+        // ── 第二步：清空并重建缓存 ───────────────────────────────────────────────
         clearCache();
-        
-        // 更新缓存和空间索引
+
         for (ShopData shopData : shopDataList) {
             if (shopData != null) {
-                // 添加到主缓存
+                // 主缓存
                 shopCache.put(shopData.getShopId(), shopData);
 
-                // 添加到物品缓存
+                // 物品缓存
                 String itemId = shopData.getItemId().toLowerCase();
                 itemCache.computeIfAbsent(itemId, k -> new ArrayList<>()).add(shopData);
 
-                // 添加到店主缓存
+                // 店主缓存
                 ownerCache.computeIfAbsent(shopData.getOwnerId(), k -> new ArrayList<>()).add(shopData);
 
-                // 添加到空间索引
+                // 位置索引（供 StockScanQueue 原地更新）
+                String locKey = locationKey(shopData.getLocation());
+                if (locKey != null) {
+                    locationIndex.put(locKey, shopData);
+                }
+
+                // 空间索引
                 Location shopLocation = shopData.getLocation();
                 if (shopLocation != null && shopLocation.getWorld() != null) {
-                    // 创建一个临时的LocationPoint来利用空间索引
                     LocationPoint tempPoint = new LocationPoint(
                         shopData.getShopId().toString(),
                         "shop_" + shopData.getItemId(),
@@ -114,16 +140,22 @@ public class ShopDataManager {
                     );
                     spatialIndex.addLocation(tempPoint);
                 }
+
+                // ── 第三步：恢复该商店的库存快照（如有）────────────────────────────
+                if (locKey != null && stockSnapshot.containsKey(locKey)) {
+                    shopData.setStock(stockSnapshot.get(locKey)); // 同时将 stockKnown 置为 true
+                }
             }
         }
-        
+
         // 保存到文件
-        saveData();
-        
+        saveDataNow();
+
         this.lastUpdateTime = System.currentTimeMillis();
         this.isDataLoaded = true;
-        
-        logger.info("商店数据更新完成！缓存了 " + shopCache.size() + " 个商店。");
+
+        logger.info("商店数据更新完成！缓存了 " + shopCache.size() + " 个商店（已恢复 "
+                + stockSnapshot.size() + " 家已扫描库存）。");
     }
     
     /**
@@ -277,15 +309,31 @@ public class ShopDataManager {
         shopCache.clear();
         itemCache.clear();
         ownerCache.clear();
+        locationIndex.clear();
 
         // 清空空间索引
         spatialIndex.clear();
     }
+
+    /**
+     * 将 Location 转换为用于 locationIndex 的字符串键。
+     * 使用方块坐标（整数），忽略 yaw/pitch，与 QuickShop 内部行为一致。
+     *
+     * @param loc 位置对象
+     * @return 格式为 "world:blockX:blockY:blockZ" 的键；loc 无效时返回 {@code null}
+     */
+    private String locationKey(Location loc) {
+        if (loc == null || loc.getWorld() == null) return null;
+        return loc.getWorld().getName() + ":" + loc.getBlockX() + ":" + loc.getBlockY() + ":" + loc.getBlockZ();
+    }
     
     /**
-     * 保存数据到文件
+     * 将当前缓存的所有商店数据立即保存到 shops.json。
+     * <p>
+     * 可在主线程或异步线程调用，但建议在异步线程中调用以避免 I/O 阻塞主线程。
+     * {@link org.plugin.shoptools.scan.StockScanQueue} 在扫描完成后会通过异步任务调用此方法。
      */
-    private void saveData() {
+    public void saveDataNow() {
         try (FileWriter writer = new FileWriter(dataFile)) {
             List<ShopData> shopList = new ArrayList<>(shopCache.values());
             List<SimpleShopData> simpleShopList = new ArrayList<>();
@@ -313,12 +361,13 @@ public class ShopDataManager {
      * <ol>
      *   <li>主线程：捕获世界快照（避免在异步线程调用 Bukkit API）</li>
      *   <li>异步线程：文件 I/O + JSON 解析 + ForkJoinPool 并行对象转换</li>
-     *   <li>主线程：重建内存缓存和空间索引</li>
+     *   <li>主线程：重建内存缓存和空间索引，然后调用 {@code onLoaded} 回调</li>
      * </ol>
      *
-     * @param plugin 插件实例，用于调度 Bukkit 任务
+     * @param plugin   插件实例，用于调度 Bukkit 任务
+     * @param onLoaded 数据加载并缓存完成后在主线程执行的回调；为 {@code null} 时忽略
      */
-    public void loadDataAsync(Plugin plugin) {
+    public void loadDataAsync(Plugin plugin, Runnable onLoaded) {
         if (!dataFile.exists()) {
             logger.info("商店数据文件不存在，将在首次同步后创建。");
             return;
@@ -383,6 +432,10 @@ public class ShopDataManager {
                     rebuildCachesOnly(finalShopList);
                     long totalTime = System.currentTimeMillis() - startTime;
                     logger.info("商店数据加载完成！共加载 " + shopCache.size() + " 个商店，总耗时 " + totalTime + "ms。");
+                    // 通知调用方加载已完成（用于触发库存扫描等后续操作）
+                    if (onLoaded != null) {
+                        onLoaded.run();
+                    }
                 });
 
             } catch (IOException e) {
@@ -422,6 +475,12 @@ public class ShopDataManager {
             // 添加到店主缓存
             ownerCache.computeIfAbsent(shopData.getOwnerId(), k -> new ArrayList<>()).add(shopData);
 
+            // 添加到位置索引（供 StockScanQueue 原地更新库存）
+            String locKey = locationKey(shopData.getLocation());
+            if (locKey != null) {
+                locationIndex.put(locKey, shopData);
+            }
+
             // 添加到空间索引
             Location shopLocation = shopData.getLocation();
             if (shopLocation != null && shopLocation.getWorld() != null) {
@@ -444,8 +503,30 @@ public class ShopDataManager {
     }
     
     /**
+     * 根据位置直接更新当前缓存中的商店库存。
+     * <p>
+     * 由 {@link org.plugin.shoptools.scan.StockScanQueue} 在区块加载后调用，确保更新的是
+     * 当前缓存中的实际对象（而非扫描队列启动时持有的旧引用），彻底避免"孤儿对象"问题。
+     * 必须在主线程调用（由 Paper 的 getChunkAtAsync 回调保证）。
+     *
+     * @param location 商店位置
+     * @param stock    从 QuickShop API 读取到的实际库存数量
+     * @return 如果找到并更新了缓存对象返回 {@code true}；位置未命中返回 {@code false}
+     */
+    public boolean updateStockByLocation(Location location, int stock) {
+        String key = locationKey(location);
+        if (key == null) return false;
+        ShopData shopData = locationIndex.get(key);
+        if (shopData != null) {
+            shopData.setStock(stock); // 同时将 stockKnown 置为 true
+            return true;
+        }
+        return false;
+    }
+
+    /**
      * 检查数据是否已加载
-     * 
+     *
      * @return 如果数据已加载返回true
      */
     public boolean isDataLoaded() {

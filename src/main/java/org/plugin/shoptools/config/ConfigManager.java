@@ -27,6 +27,9 @@ public class ConfigManager {
     private static final boolean DEFAULT_AUTO_SYNC = true;
     private static final long DEFAULT_SYNC_INTERVAL = 600000L; // 10分钟
     private static final int DEFAULT_LOAD_THREADS = 0; // 0 = 自动检测（可用线程数 - 2）
+    private static final boolean DEFAULT_STOCK_SCAN_ENABLED = true;
+    private static final int DEFAULT_STOCK_SCAN_CHUNKS_PER_TICK = 3; // 每 tick 处理的区块数
+    private static final int DEFAULT_STOCK_SCAN_TICK_DELAY = 5;      // 每批次间隔 tick 数
     
     /**
      * 构造函数
@@ -65,6 +68,9 @@ public class ConfigManager {
         config.addDefault("sync.auto", DEFAULT_AUTO_SYNC);
         config.addDefault("sync.interval", DEFAULT_SYNC_INTERVAL);
         config.addDefault("performance.load-threads", DEFAULT_LOAD_THREADS);
+        config.addDefault("performance.stock-scan.enabled", DEFAULT_STOCK_SCAN_ENABLED);
+        config.addDefault("performance.stock-scan.chunks-per-tick", DEFAULT_STOCK_SCAN_CHUNKS_PER_TICK);
+        config.addDefault("performance.stock-scan.tick-delay", DEFAULT_STOCK_SCAN_TICK_DELAY);
         
         // 消息配置
         config.addDefault("messages.prefix", "&6[ShopTools] &r");
@@ -147,6 +153,35 @@ public class ConfigManager {
      */
     public int getLoadThreads() {
         return config.getInt("performance.load-threads", DEFAULT_LOAD_THREADS);
+    }
+
+    /**
+     * 是否启用启动时异步库存扫描。
+     *
+     * @return {@code true} 表示启用
+     */
+    public boolean isStockScanEnabled() {
+        return config.getBoolean("performance.stock-scan.enabled", DEFAULT_STOCK_SCAN_ENABLED);
+    }
+
+    /**
+     * 每个 tick 批次中处理的最大区块数。
+     * 值越大扫描越快，但每 tick 主线程占用稍多。
+     *
+     * @return 每 tick 处理的区块数
+     */
+    public int getStockScanChunksPerTick() {
+        return Math.max(1, config.getInt("performance.stock-scan.chunks-per-tick", DEFAULT_STOCK_SCAN_CHUNKS_PER_TICK));
+    }
+
+    /**
+     * 两个批次之间的间隔 tick 数。
+     * 值越大对服务器压力越小，扫描越慢。
+     *
+     * @return 批次间隔 tick 数
+     */
+    public int getStockScanTickDelay() {
+        return Math.max(1, config.getInt("performance.stock-scan.tick-delay", DEFAULT_STOCK_SCAN_TICK_DELAY));
     }
     
     public String getMessage(String key) {

@@ -6,6 +6,7 @@ import org.plugin.shoptools.config.ConfigManager;
 import org.plugin.shoptools.integration.QuickShopIntegration;
 import org.plugin.shoptools.manager.LocationManager;
 import org.plugin.shoptools.manager.ShopBackupManager;
+import org.plugin.shoptools.scan.StockScanQueue;
 import org.plugin.shoptools.storage.ShopDataManager;
 import org.plugin.shoptools.sync.DataSyncManager;
 
@@ -24,11 +25,12 @@ public final class ShopTools extends JavaPlugin {
     private DataSyncManager syncManager;
     private ShopBackupManager backupManager;
     private ShopToolsCommand commandHandler;
+    private StockScanQueue stockScanQueue;
 
     @Override
     public void onEnable() {
         getLogger().info("===================================");
-        getLogger().info("ShopTools v1.2.8 正在启动...");
+        getLogger().info("ShopTools v1.3.0 正在启动...");
         getLogger().info("作者：NSrank & Augment");
         getLogger().info("===================================");
 
@@ -42,7 +44,7 @@ public final class ShopTools extends JavaPlugin {
             // 延迟初始化QuickShop相关功能，确保QuickShop完全启动
             getServer().getScheduler().runTaskLater(this, this::initializeQuickShopIntegration, 60L); // 3秒延迟
 
-            getLogger().info("ShopTools v1.2.7 基础功能启动完成！");
+            getLogger().info("ShopTools v1.3.0 基础功能启动完成！");
             getLogger().info("正在等待QuickShop插件完全启动...");
 
         } catch (Exception e) {
@@ -71,7 +73,7 @@ public final class ShopTools extends JavaPlugin {
             // 更新命令处理器
             updateCommandHandler();
 
-            getLogger().info("ShopTools v1.2.7 完全启动完成！");
+            getLogger().info("ShopTools v1.3.0 完全启动完成！");
 
         } catch (Exception e) {
             getLogger().severe("QuickShop集成初始化失败: " + e.getMessage());
@@ -91,6 +93,11 @@ public final class ShopTools extends JavaPlugin {
             // 停止同步管理器
             if (syncManager != null) {
                 syncManager.stopSync();
+            }
+
+            // 停止库存扫描队列
+            if (stockScanQueue != null) {
+                stockScanQueue.stop();
             }
 
             // 清理位置管理器资源
@@ -138,13 +145,19 @@ public final class ShopTools extends JavaPlugin {
     }
 
     /**
-     * 初始化数据管理器，并触发异步多线程数据加载
+     * 初始化数据管理器，并触发异步多线程数据加载。
+     * 数据加载完成后自动启动库存扫描队列（如已在配置中启用）。
      */
     private void initializeDataManager() {
         getLogger().info("初始化数据管理器...");
         dataManager = new ShopDataManager(getDataFolder(), configManager, getLogger());
-        // 异步加载本地缓存数据，避免阻塞主线程
-        dataManager.loadDataAsync(this);
+        stockScanQueue = new StockScanQueue(this, quickShopIntegration, dataManager, configManager, getLogger());
+
+        // 异步加载本地缓存数据，加载完成后触发库存扫描
+        dataManager.loadDataAsync(this, () -> {
+            getLogger().info("缓存数据已就绪，开始库存扫描...");
+            stockScanQueue.start(dataManager.getAllShops(), null);
+        });
         getLogger().info("数据管理器初始化完成，异步加载已启动。");
     }
 

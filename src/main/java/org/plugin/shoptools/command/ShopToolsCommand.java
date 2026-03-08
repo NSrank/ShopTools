@@ -492,7 +492,8 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
             String ownerName = shop.isUnlimited() ? shop.getDisplayOwnerName() :
                               getPlayerName(shop.getOwnerId(), shop.getOwnerName());
             String shopStatus = getShopStatusText(shop.getShopType());
-            String shopTypeStatus = shop.getStatusDescription(); // 获取商店状态（无限/普通）
+            String shopTypeStatus = shop.getStatusDescription();
+            String stockStatus = shop.getStockStatusText();
 
             String message = configManager.getMessage("shop-list-item")
                     .replace("{item}", shop.getItemDisplayName())
@@ -501,6 +502,9 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
                     .replace("{owner}", ownerName)
                     .replace("{status}", shopStatus + (shop.isUnlimited() ? " [" + shopTypeStatus + "]" : ""));
 
+            if (!stockStatus.isEmpty()) {
+                message += " " + stockStatus;
+            }
             MessageUtil.sendMessage(sender, message);
         }
 
@@ -538,7 +542,8 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
             String ownerName = shop.isUnlimited() ? shop.getDisplayOwnerName() :
                               getPlayerName(shop.getOwnerId(), shop.getOwnerName());
             String shopStatus = getShopStatusText(shop.getShopType());
-            String shopTypeStatus = shop.getStatusDescription(); // 获取商店状态（无限/普通）
+            String shopTypeStatus = shop.getStatusDescription();
+            String stockStatus = shop.getStockStatusText();
 
             String message = configManager.getMessage("shop-list-item")
                     .replace("{item}", shop.getItemDisplayName())
@@ -547,6 +552,9 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
                     .replace("{owner}", ownerName)
                     .replace("{status}", shopStatus + (shop.isUnlimited() ? " [" + shopTypeStatus + "]" : ""));
 
+            if (!stockStatus.isEmpty()) {
+                message += " " + stockStatus;
+            }
             MessageUtil.sendMessage(sender, message);
         }
 
@@ -954,7 +962,8 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
             String ownerName = shop.isUnlimited() ? shop.getDisplayOwnerName() :
                               getPlayerName(shop.getOwnerId(), shop.getOwnerName());
             String shopStatus = getShopStatusText(shop.getShopType());
-            String shopTypeStatus = shop.getStatusDescription(); // 获取商店状态（无限/普通）
+            String shopTypeStatus = shop.getStatusDescription();
+            String stockStatus = shop.getStockStatusText();
             String distanceText = getFormattedDistance(playerLocation, shop.getLocation());
 
             String message = configManager.getMessage("shop-list-item")
@@ -964,6 +973,9 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
                     .replace("{owner}", ownerName)
                     .replace("{status}", shopStatus + (shop.isUnlimited() ? " [" + shopTypeStatus + "]" : ""));
 
+            if (!stockStatus.isEmpty()) {
+                message += " " + stockStatus;
+            }
             MessageUtil.sendMessage(sender, message);
         }
 
@@ -1002,7 +1014,8 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
             String ownerName = shop.isUnlimited() ? shop.getDisplayOwnerName() :
                               getPlayerName(shop.getOwnerId(), shop.getOwnerName());
             String shopStatus = getShopStatusText(shop.getShopType());
-            String shopTypeStatus = shop.getStatusDescription(); // 获取商店状态（无限/普通）
+            String shopTypeStatus = shop.getStatusDescription();
+            String stockStatus = shop.getStockStatusText();
             String distanceText = getFormattedDistance(playerLocation, shop.getLocation());
 
             String message = configManager.getMessage("shop-list-item")
@@ -1012,6 +1025,9 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
                     .replace("{owner}", ownerName)
                     .replace("{status}", shopStatus + (shop.isUnlimited() ? " [" + shopTypeStatus + "]" : ""));
 
+            if (!stockStatus.isEmpty()) {
+                message += " " + stockStatus;
+            }
             MessageUtil.sendMessage(sender, message);
         }
 

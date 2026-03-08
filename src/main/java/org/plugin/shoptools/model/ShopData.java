@@ -33,11 +33,13 @@ public class ShopData {
     @Expose
     private final ShopType shopType;
     @Expose
-    private final int stock;
+    private int stock;
     @Expose
     private final boolean isUnlimited;
     // 不序列化ItemStack，因为它可能包含复杂的内部结构
     private final ItemStack item;
+    // 库存是否已被扫描器确认过（非持久化，服务器重启后需重新扫描）
+    private boolean stockKnown = false;
     
     /**
      * 商店类型枚举
@@ -91,6 +93,18 @@ public class ShopData {
     public int getStock() { return stock; }
     public boolean isUnlimited() { return isUnlimited; }
     public ItemStack getItem() { return item; }
+    public boolean isStockKnown() { return stockKnown; }
+
+    /**
+     * 更新库存数量并标记为已确认。
+     * 仅由 StockScanQueue 在区块加载完成后调用。
+     *
+     * @param stock 从 QuickShop API 读取到的实际库存数量
+     */
+    public void setStock(int stock) {
+        this.stock = stock;
+        this.stockKnown = true;
+    }
 
     /**
      * 获取显示用的店主名称
@@ -161,27 +175,29 @@ public class ShopData {
     }
     
     /**
-     * 检查商店是否售罄
+     * 检查商店是否售罄。
      * <p>
-     * 由于 QuickShop 的库存数据依赖区块加载（实时读取箱子方块实体），
-     * 无法在不阻塞主线程的情况下可靠获取，因此已停用库存检查。
-     * 本方法始终返回 {@code false}，保留接口以保证 API 兼容性。
+     * 仅当 {@link #isStockKnown()} 为 {@code true}（即 StockScanQueue 已对该商店完成扫描）时
+     * 才会返回有意义的结果，否则始终返回 {@code false} 以避免误报。
+     * 无限商店（系统商店）永远不会售罄。
      *
-     * @return 始终返回 {@code false}
+     * @return 如果是售卖商店且库存已确认为 0，返回 {@code true}；否则返回 {@code false}
      */
     public boolean isOutOfStock() {
-        return false;
+        if (!stockKnown || isUnlimited) {
+            return false;
+        }
+        // 仅对售卖商店检查售罄
+        return shopType == ShopType.SELLING && stock == 0;
     }
 
     /**
-     * 获取库存状态文本
-     * <p>
-     * 库存检查已停用，始终返回空字符串。
+     * 获取库存状态文本，用于命令输出追加显示。
      *
-     * @return 空字符串
+     * @return 售罄时返回 {@code "&c售罄"}，否则返回空字符串
      */
     public String getStockStatusText() {
-        return "";
+        return isOutOfStock() ? "&c售罄" : "";
     }
 
     @Override
