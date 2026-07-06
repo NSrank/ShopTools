@@ -9,6 +9,7 @@ import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.plugin.shoptools.ShopTools;
 import org.plugin.shoptools.config.ConfigManager;
+import org.plugin.shoptools.config.ItemAliasManager;
 import org.plugin.shoptools.data.LocationPoint;
 import org.plugin.shoptools.manager.LocationManager;
 import org.plugin.shoptools.manager.ShopBackupManager;
@@ -32,6 +33,7 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
 
     private final ShopTools plugin;
     private final ConfigManager configManager;
+    private final ItemAliasManager aliasManager;
     private final Map<UUID, Long> playerCooldowns = new HashMap<>();
     private ShopDataManager dataManager;
     private LocationManager locationManager;
@@ -43,12 +45,14 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
      * @param configManager 配置管理器
      * @param dataManager 数据管理器（可以为null，稍后通过setDataManager设置）
      * @param locationManager 位置管理器
+     * @param aliasManager 物品别名管理器
      */
-    public ShopToolsCommand(ShopTools plugin, ConfigManager configManager, ShopDataManager dataManager, LocationManager locationManager) {
+    public ShopToolsCommand(ShopTools plugin, ConfigManager configManager, ShopDataManager dataManager, LocationManager locationManager, ItemAliasManager aliasManager) {
         this.plugin = plugin;
         this.configManager = configManager;
         this.dataManager = dataManager;
         this.locationManager = locationManager;
+        this.aliasManager = aliasManager;
     }
 
     /**
@@ -161,6 +165,8 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
 
         Player player = (Player) sender;
         String itemId = args[1];
+        String resolvedItemId = aliasManager.resolveItemId(itemId);
+        String displayItemLabel = aliasManager.getDisplayLabel(itemId);
         int page = 1; // 默认第一页
 
         // 检查是否指定了页码
@@ -178,10 +184,10 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
         }
 
         // 获取所有指定物品的商店（不限制距离）
-        List<ShopData> allShops = dataManager.getShopsByItem(itemId);
+        List<ShopData> allShops = dataManager.getShopsByItem(resolvedItemId);
 
         if (allShops.isEmpty()) {
-            MessageUtil.sendMessage(sender, "&e没有找到 &6" + itemId + "&e 的商店。");
+            MessageUtil.sendMessage(sender, configManager.getMessage("item-not-found", "item", displayItemLabel));
             return;
         }
 
@@ -192,10 +198,10 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
         int pageSize = 10;
         if (allShops.size() <= pageSize) {
             // 商店数量少，直接显示所有
-            displayNearbyShopList(sender, allShops, itemId + " 商店", false, player.getLocation());
+            displayNearbyShopList(sender, allShops, displayItemLabel + " 商店", false, player.getLocation());
         } else {
             // 商店数量多，使用分页显示
-            displayNearbyShopListPaged(sender, allShops, itemId + " 商店", page, player.getLocation());
+            displayNearbyShopListPaged(sender, allShops, displayItemLabel + " 商店", page, player.getLocation());
 
             // 添加导航提示
             int totalPages = (int) Math.ceil((double) allShops.size() / 10);
@@ -298,6 +304,8 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
         }
 
         String itemId = args[1];
+        String resolvedItemId = aliasManager.resolveItemId(itemId);
+        String displayItemLabel = aliasManager.getDisplayLabel(itemId);
         int page = 1; // 默认第一页
 
         // 检查是否指定了页码
@@ -315,10 +323,10 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
         }
 
         // 获取指定物品的商店
-        List<ShopData> shops = dataManager.getShopsByItem(itemId);
+        List<ShopData> shops = dataManager.getShopsByItem(resolvedItemId);
 
         if (shops.isEmpty()) {
-            MessageUtil.sendMessage(sender, configManager.getMessage("item-not-found", "item", itemId));
+            MessageUtil.sendMessage(sender, configManager.getMessage("item-not-found", "item", displayItemLabel));
             return;
         }
 
@@ -329,10 +337,10 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
         int pageSize = 10;
         if (shops.size() <= pageSize) {
             // 商店数量少，直接显示所有
-            displayShopList(sender, shops, "物品 " + itemId + " 的商店", false);
+            displayShopList(sender, shops, "物品 " + displayItemLabel + " 的商店", false);
         } else {
             // 商店数量多，使用分页显示
-            displayShopListPaged(sender, shops, "物品 " + itemId + " 的商店", page);
+            displayShopListPaged(sender, shops, "物品 " + displayItemLabel + " 的商店", page);
         }
     }
 
@@ -466,8 +474,9 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
         
         MessageUtil.sendMessage(sender, "&a正在重新加载配置和数据...");
 
-        // 重新加载配置
+        // 重新加载配置和别名映射
         configManager.reloadConfig();
+        aliasManager.reload();
 
         // 重新同步数据，并触发库存重新扫描
         plugin.syncShopData();
@@ -497,7 +506,7 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
             String stockStatus = shop.getStockStatusText();
 
             String message = configManager.getMessage("shop-list-item")
-                    .replace("{item}", shop.getItemDisplayName())
+                    .replace("{item}", getItemLabel(shop))
                     .replace("{location}", shop.getFormattedLocation())
                     .replace("{price}", shop.getFormattedPrice())
                     .replace("{owner}", ownerName)
@@ -547,7 +556,7 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
             String stockStatus = shop.getStockStatusText();
 
             String message = configManager.getMessage("shop-list-item")
-                    .replace("{item}", shop.getItemDisplayName())
+                    .replace("{item}", getItemLabel(shop))
                     .replace("{location}", shop.getFormattedLocation())
                     .replace("{price}", shop.getFormattedPrice())
                     .replace("{owner}", ownerName)
@@ -1040,6 +1049,25 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
     }
 
     /**
+     * 获取商店项的显示标签（优先使用中文别名，否则返回原始显示名称）
+     *
+     * @param shop 商店数据
+     * @return 用于显示的物品标签
+     */
+    private String getItemLabel(ShopData shop) {
+        if (shop == null || shop.getItemId() == null) {
+            return "未知物品";
+        }
+        String itemId = shop.getItemId();
+        String alias = aliasManager.getPrimaryAlias(itemId);
+        if (alias != null && !alias.isEmpty()) {
+            return alias;
+        }
+        String displayName = shop.getItemDisplayName();
+        return displayName != null && !displayName.isEmpty() ? displayName : itemId;
+    }
+
+    /**
      * 显示帮助信息
      *
      * @param sender 命令发送者
@@ -1095,11 +1123,14 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
             String subCommand = args[0].toLowerCase();
 
             if ("search".equals(subCommand)) {
-                // 物品ID补全（玩家命令）
-                Set<String> itemIds = dataManager.getAllShops().stream()
-                        .map(ShopData::getItemId)
-                        .collect(Collectors.toSet());
-                completions.addAll(itemIds);
+                // 物品补全（玩家命令）
+                if (configManager.isEnglishItemCompletionEnabled() && dataManager != null) {
+                    Set<String> itemIds = dataManager.getAllShops().stream()
+                            .map(ShopData::getItemId)
+                            .collect(Collectors.toCollection(LinkedHashSet::new));
+                    completions.addAll(itemIds);
+                }
+                completions.addAll(aliasManager.getAllAliases());
             } else if ("near".equals(subCommand)) {
                 // 页码补全（玩家命令）
                 if (sender instanceof Player) {
@@ -1120,11 +1151,14 @@ public class ShopToolsCommand implements CommandExecutor, TabCompleter {
                     completions.add(String.valueOf(i));
                 }
             } else if ("list".equals(subCommand) && sender.hasPermission("shoptools.admin")) {
-                // 物品ID补全（管理员命令）
-                Set<String> itemIds = dataManager.getAllShops().stream()
-                        .map(ShopData::getItemId)
-                        .collect(Collectors.toSet());
-                completions.addAll(itemIds);
+                // 物品补全（管理员命令）
+                if (configManager.isEnglishItemCompletionEnabled() && dataManager != null) {
+                    Set<String> itemIds = dataManager.getAllShops().stream()
+                            .map(ShopData::getItemId)
+                            .collect(Collectors.toCollection(LinkedHashSet::new));
+                    completions.addAll(itemIds);
+                }
+                completions.addAll(aliasManager.getAllAliases());
             } else if ("who".equals(subCommand) && sender.hasPermission("shoptools.admin")) {
                 // 玩家名补全（管理员命令）
                 for (Player player : Bukkit.getOnlinePlayers()) {

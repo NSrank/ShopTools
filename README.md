@@ -137,12 +137,29 @@ messages:
 
 ## 开发信息
 
-- **作者**: NSrank & Augment
-- **版本**: 1.2.6
+- **作者**: NSrank & Augment & CodeX
+- **版本**: 1.3.2
 - **开源协议**: MIT License
 - **GitHub**: https://github.com/NSrank/ShopTools
 
 ## 更新日志
+
+### v1.3.2 (2026-07-06)
+
+#### 🚀 新增功能
+- **中文物品别名支持**：新增 `message.yml` 配置文件，支持将中文别名映射为英文物品 ID，搜索和列表命令可直接使用更友好的中文输入。
+- **别名驱动的搜索结果展示**：`/st search`、`/st list` 等命令在输出中会优先显示别名化结果，提升玩家理解和使用体验。
+- **Tab 补全优化**：补全建议会优先提供已配置的中文别名，减少玩家记忆英文物品 ID 的压力。
+- **可配置英文 ID 补全**：新增 `feature.enable-english-item-completion` 配置项，默认开启；如需更简洁的补全体验可关闭英文 ID 提示。
+- **配置文件热重载支持**：别名配置变更后可通过 `/st reload` 生效，无需重启服务器。
+
+#### ⚙️ 配置变更
+- 新增 `message.yml`：用于配置中文别名到英文物品 ID 的映射。
+- 新增 `feature.enable-english-item-completion`：控制是否在 Tab 补全中显示英文物品 ID。
+
+#### 🎯 用户体验
+- 让中文玩家可以用更自然的方式查找商店，降低对英文物品 ID 的依赖。
+- 兼顾新老玩家：保留英文 ID 作为可选补全方式，同时提供更友好的中文别名入口。
 
 ### v1.3.1 (2026-03-08)
 
@@ -431,61 +448,111 @@ messages:
 
 **注意**: 本插件需要QuickShop-Reremake插件才能正常工作。请确保在安装本插件前已正确安装并配置QuickShop-Reremake。
 
----
+---  
 
-# ShopTools (English)
+# ShopTools
 
-**Note**: This plugin is developed by AI.
-
-A powerful Minecraft shop query plugin that provides comprehensive shop information management and intelligent search capabilities for QuickShop-Reremake.
+A utility plugin to help players better use the QuickShop-Reremake plugin.
+**Note**: This plugin is AI-assisted in development.
 
 ## Features
 
-- **Automatic Data Sync**: Automatically reads shop data from QuickShop on server startup
-- **Intelligent Sorting**: Supports multiple sorting methods (item ID, price, owner, etc.)
-- **Cache Optimization**: Efficient data caching mechanism for improved query performance
-- **Chinese Localization**: Complete Chinese interface and message support
+### Shop Management Features
+- **Shop Data Query**: View detailed information of all shops on the server
+- **Item Search**: Search for related shops by item ID
+- **Player Shop Query**: View all shops owned by a specified player
+- **Shop Deletion**: Use QuickShop's official `/qs removeall` command to batch delete all shops of a specified player
+- **Persistent Deletion**: Ensure shops do not reappear after server restart
+- **Data Backup**: Automatically backup shop data before deletion, supporting recovery
+- **Unlimited Shop Detection**: Automatically detect and identify system shops (unlimited shops), displayed as "System Shop"
+- **Shop Status Display**: Display shop status (Normal/Unlimited), helping players distinguish shop types
+- **Automatic Data Sync**: Automatically read shop data from QuickShop when the server starts
+- **Smart Sorting**: Support multiple sorting methods (Item ID, Price, Owner, etc.)
+- **Cache Optimization**: Efficient data caching mechanism to improve query performance
 
-## Commands
+### Location Point Management Features 🆕
+- **Create Location Points**: Admins can create location markers with keywords
+- **Smart Search**: Players can search for location points by keyword
+- **Distance Display**: Smart distance calculation and display (Exact distance/200m+/Cross-world)
+- **Pagination Browsing**: Support pagination display for large numbers of location points
+- **Coordinate Parsing**: Support absolute coordinates and relative coordinates (~,~,~)
 
-### Player Commands
-- `/shoptools search <item_id> [page]` or `/st search <item_id> [page]` - Search all shops for specified items (smart distance display, sorted by distance)
+### General Features
+- **Chinese Localization**: Full Chinese interface and message support
+- **Permission Grading**: Fine-grained permission control system
+- **Tab Completion**: Complete command auto-completion support
+
+## Command Usage
+
+### Player Available Commands
+
+#### Shop Query
+- `/shoptools search <itemID> [page]` or `/st search <itemID> [page]` - Search for all shops selling the specified item (smart distance display, sorted by distance)
 - `/shoptools near [page]` or `/st near [page]` - View all shops within 200 blocks (sorted by distance)
-- `/shoptools help` or `/st help` - Show help information
 
-### Admin Commands
+#### Location Point Query 🆕
+- `/shoptools locate <keyword> [page]` or `/st locate <keyword> [page]` - Search for location points by keyword (same world sorted by distance, other worlds displayed at the end)
+- `/shoptools locate list` or `/st locate list` - List all available keywords
+
+#### Help Information
+- `/shoptools help` or `/st help` - Display help information
+
+### Admin Only Commands
+
+#### Shop Management
 - `/shoptools page <page>` or `/st page <page>` - Paginated display of all shops (10 per page, sorted by item ID alphabetically)
-- `/shoptools list <item_id> [page]` or `/st list <item_id> [page]` - Show shops for specified items (supports pagination, sorted by price ascending)
-- `/shoptools who <player_name/uuid> [page]` or `/st who <player_name/uuid> [page]` - Smart player shop search (supports fuzzy matching, UUID search, pagination)
+- `/shoptools list <itemID> [page]` or `/st list <itemID> [page]` - Display shops for the specified item (supports pagination, sorted by price ascending)
+- `/shoptools who <playerName/UUID> [page]` or `/st who <playerName/UUID> [page]` - Smart player shop lookup (supports fuzzy matching, UUID lookup, paginated display)
+- `/shoptools ban <playerName>` or `/st ban <playerName>` - Delete all shops of the specified player (uses QuickShop official removeall command, ensures persistent deletion, can only be executed by players, supports debug mode to control output verbosity)
+
+#### Location Point Management 🆕
+- `/shoptools clocate <x,y,z|~,~,~> <pointName> <keyword>` or `/st clocate <x,y,z|~,~,~> <pointName> <keyword>` - Create a location point
+- `/shoptools listlocate [page]` or `/st listlocate [page]` - List all location points (display ID, Name, Keyword, Coordinates)
+- `/shoptools dellocate <ID> [confirm]` or `/st dellocate <ID> [confirm]` - Delete the location point by specified ID (requires confirmation)
+
+#### System Management
 - `/shoptools reload` or `/st reload` - Reload configuration and data
 
-## Permissions
+## Permission Nodes
 
-- `shoptools.use` - Allow use of basic commands (default: requires manual authorization)
-- `shoptools.admin` - Allow use of admin commands (default: operators)
+- `shoptools.use` - Allows use of basic commands (shop query, location point query) (Default: requires manual authorization)
+- `shoptools.admin` - Allows use of admin commands (includes all basic permissions + location point creation, system management) (Default: OP)
 
-## Installation
+### Permission Inheritance
+- `shoptools.admin` automatically includes `shoptools.use` permission
+- Admins can use all features, regular players can only query but not create
 
-### Requirements
-- Minecraft 1.20.1+
-- Paper/Spigot server
-- QuickShop-Reremake plugin
+## Installation Requirements
 
-### Installation Steps
-1. Download the latest `ShopTools-1.0-SNAPSHOT.jar`
-2. Place it in the server's `plugins` folder
-3. Restart the server
-4. The plugin will automatically create configuration files and sync shop data
+- **Minecraft Version**: 1.20.1+
+- **Server**: Paper/Spigot
+- **Java Version**: 17+
+- **Dependency Plugin**: QuickShop-Reremake
 
-## Configuration
+## Installation Steps
 
-The plugin automatically creates `plugins/ShopTools/config.yml` with the following structure:
+1. Ensure the server has QuickShop-Reremake plugin installed
+2. Place the ShopTools plugin file into the server's `plugins` folder
+3. Restart the server or use the `/reload` command
+4. The plugin will automatically create configuration files and start syncing shop data
+
+## Configuration Files
+
+The plugin will generate configuration files in `plugins/ShopTools/config.yml`, supporting the following configurations:
 
 ```yaml
+# Debug mode
+debug: false
+
+# Cache settings
+cache:
+  size: 1000
+  expire-time: 300000
+
 # Data sync settings
-data-sync:
-  auto-sync-on-startup: true
-  sync-interval-minutes: 30
+sync:
+  auto: true
+  interval: 600000
 
 # Command cooldown settings
 cooldown:
@@ -494,156 +561,343 @@ cooldown:
   # Whether admins bypass cooldown restrictions
   admin-bypass: true
 
-# Message settings
-messages:
-  # Player commands
-  help-search: "&e/shoptools search <item_id> [page] &7- Search all shops for specified items (sorted by distance)"
-  help-near: "&e/shoptools near [page] &7- View all shops within 200 blocks"
+# Admin feature settings
+admin:
+  # Ban command debug mode
+  # When enabled, displays detailed deletion and sync information
+  # When disabled, only displays concise success information
+  ban-debug: false
 
-  # Admin commands
-  help-page: "&e/shoptools page <page> &7- Paginated display of all shops &c(Admin)"
-  help-list: "&e/shoptools list <item_id> [page] &7- Show shops for specified items &c(Admin)"
-  help-who: "&e/shoptools who <player_name/uuid> [page] &7- Show specified player's shops &c(Admin)"
-  help-reload: "&e/shoptools reload &7- Reload configuration and data &c(Admin)"
+# Message configuration
+messages:
+  prefix: "&6[ShopTools] &r"
+  # ... more message configurations
 ```
 
-## Key Features
+## Data Storage
 
-### Smart Distance Display
-- **0-200 blocks**: Shows precise distance (e.g., "15.3m", "89.7m")
-- **Over 200 blocks**: Shows "200m+"
-- **Other worlds**: Shows "otherworld"
+- Shop data is stored in the `plugins/ShopTools/shops.json` file
+- Supports automatic backup and data recovery
+- Data format is JSON for easy external tool processing
 
-### Intelligent Search
-- **Fuzzy matching**: Input "DIA" matches "DIAMOND"
-- **UUID support**: Search players by UUID
-- **Multi-result handling**: Smart suggestions when multiple matches found
+## Performance Optimization
 
-### Pagination System
-- **Smart pagination**: ≤10 items show directly, >10 items auto-paginate
-- **Navigation hints**: Clear previous/next page commands
-- **Performance optimization**: Avoid displaying large amounts of data at once
+- **Asynchronous Data Sync**: Avoid blocking the main thread
+- **Smart Cache**: Reduce repeated query overhead
+- **Pagination Display**: Automatic pagination for large amounts of data
+- **Memory Management**: Automatic cleanup of expired cache
 
-### Business Protection
-- **Privacy protection**: Hide server-wide price information to prevent price wars
-- **Distance priority**: Encourage local trading, maintain geographical economic balance
-- **Permission separation**: Players use nearby search, admins use server-wide queries
+## Development Information
 
-## Version History
+- **Author**: NSrank & Augment & CodeX
+- **Version**: 1.3.2
+- **License**: MIT License
+- **GitHub**: https://github.com/NSrank/ShopTools
 
-### v1.2.0 (2025-07-29) 🎯 Direction Indicators & Stability Enhancement
+## Changelog
 
-**🧭 Direction Indicator System**:
-- ✨ **Smart Direction Display**: Added direction indicators (E, W, S, N, etc.) for all relative position queries
-- 📍 **Precise Direction Calculation**: 8-direction calculation system based on coordinate differences (N, NE, E, SE, S, SW, W, NW)
-- 🎯 **Distance Format Optimization**: Display format as "Direction Distance", e.g., "E 15.3m", "W 25.7m"
-- 🌐 **Cross-world Support**: Different worlds display "otherworld", avoiding invalid direction calculations
+### v1.3.2 (2026-07-06)
+
+#### 🚀 New Features
+- **Chinese Item Alias Support**: Added `message.yml` configuration file, supporting mapping Chinese aliases to English item IDs. Search and list commands can now use more user-friendly Chinese input.
+- **Alias-Driven Search Result Display**: `/st search`, `/st list`, and other commands will prioritize displaying aliased results in output, improving player understanding and experience.
+- **Tab Completion Optimization**: Completion suggestions will prioritize configured Chinese aliases, reducing the pressure on players to memorize English item IDs.
+- **Configurable English ID Completion**: Added `feature.enable-english-item-completion` configuration item, enabled by default; can be disabled for a cleaner completion experience.
+- **Configuration File Hot-Reload Support**: Alias configuration changes can take effect via `/st reload` without restarting the server.
+
+#### ⚙️ Configuration Changes
+- Added `message.yml`: Used for configuring Chinese alias to English item ID mappings.
+- Added `feature.enable-english-item-completion`: Controls whether English item IDs are displayed in Tab completion.
+
+#### 🎯 User Experience
+- Allows Chinese players to find shops in a more natural way, reducing reliance on English item IDs.
+- Caters to both new and old players: Retains English IDs as an optional completion method while providing a more user-friendly Chinese alias entry point.
+
+### v1.3.1 (2026-03-08)
+
+#### 🔧 Technical Improvements
+- **Periodic Sync Linked Stock Scan**: `DataSyncManager` automatically triggers a stock rescan after each periodic sync, ensuring shop information and stock status remain synchronized and preventing stale inventory data after long server runtime.
+- **Reload Linked Stock Scan**: After executing `/st reload`, in addition to completing configuration reload and data sync, a stock rescan is triggered to ensure the latest out-of-stock status is displayed immediately after reload.
+- **`triggerStockScan()` Public Interface**: Added this method in the `ShopTools` main class, stopping the old scan queue and starting a new one with a 5-tick short delay to avoid interference between initial sync and periodic scans.
+- **Initial Scan and Periodic Scan Decoupling**: The initial scan at startup is triggered by the `loadDataAsync` callback (`initialSync` no longer triggers repeatedly); periodic and manual scans use the independent `triggerStockScan()` path, with clear logic and no mutual interference.
+- **Scan Delay Optimization**: Wait 40 ticks at startup for world loading to stabilize; use 5-tick short delay for periodic/reload-triggered rescans to avoid unnecessary waiting.
+
+#### 🐛 Bug Fixes
+- **Fixed Periodic Sync Not Updating Stock**: Previously, `DataSyncManager` periodic sync only refreshed shop metadata (item, price, owner) without updating stock status, causing out-of-stock displays to become stale after long runtime.
+- **Fixed Reload Not Updating Stock**: `/st reload` did not re-read stock data after execution; after this fix, reload will trigger a complete stock scan.
+
+#### 🎮 User Experience
+- **Reload Prompt Optimization**: `/st reload` now additionally displays "Stock information is being rescanned in the background" after completion, informing admins that scanning is in progress and the latest out-of-stock status will be available shortly.
+
+### v1.3.0 (2026-03-08)
+
+#### 🚀 New Features
+- **Asynchronous Stock Scanning**: Integrated with FinderTools-Lib's chunk async loading mechanism, the plugin performs background chunk-by-chunk scanning of real shop stock after startup, without blocking the main thread throughout.
+- **Out-of-Stock Status Recovery**: `/st search` and `/st near` command shop lists now re-support the `&cOut of Stock` marker, accurately displayed after scan confirmation.
+- **Configurable Scan Rate**: Added `performance.stock-scan` configuration section, supporting adjustment of chunks per batch and batch interval to balance scan speed and server load.
+
+#### 🔧 Technical Improvements
+- **`StockScanQueue` Core Queue**: Groups shops by `(world, chunkX, chunkZ)` and enqueues them; BukkitRunnable periodically calls `getChunkAtAsync(generate=false)` in batches; for already loaded chunks reads directly, for unloaded chunks reads in main thread async callback and immediately unloads, saving memory.
+- **`locationIndex` Location Index**: `ShopDataManager` adds a location index with `"world:blockX:blockY:blockZ"` as key; `StockScanQueue` directly hits current cache objects via `updateStockByLocation()`, completely eliminating "orphan reference" issues.
+- **Stock Snapshot Recovery Mechanism**: `updateShopData()` takes a snapshot of confirmed stock before full sync, restores by location after cache rebuild, ensuring stock data is not lost across sync cycles.
+- **`stockKnown` Scan Sentinel**: `ShopData` adds a non-persistent field; before scan completion `isOutOfStock()` always returns `false`, preventing false positives due to unknown stock at startup.
+
+#### 🐛 Bug Fixes
+- **Fixed Stock Never Updating**: Fixed `StockScanQueue` updating orphan `ShopData` references (cache already replaced by sync) causing stock writes to be invalid.
+- **Fixed Sync Overwriting Stock**: Fixed `DataSyncManager` overwriting all cache with `stock=0, stockKnown=false` on each full sync, causing out-of-stock markers to never display.
+- **Fixed Region File Pre-check**: Before scanning, check if `.mca` files exist, skipping invalid load requests for ungenerated chunks.
+
+#### ⚙️ Configuration Changes
+- Added `performance.stock-scan` configuration section
+  - `enabled` (default `true`): Whether to enable startup stock scanning
+  - `chunks-per-tick` (default `3`): Maximum chunks processed per batch
+  - `tick-delay` (default `5`): Tick delay between batches (5 ticks ≈ approximately 60 chunks scanned per second)
+
+### v1.2.8 (2026-03-07)
+
+#### 🔧 Technical Improvements
+- **Removed Stock Check Module**: Deactivated inventory detection logic dependent on chunk loading, completely eliminating the root cause of main thread blocking during server startup (Watchdog 10-second timeout).
+- **Chunk Loading Mechanism Analysis**: Technical verification confirmed that QuickShop's `getRemainingStock()` reads chest block entities in real-time and must execute with chunks already loaded; forcing large-scale chunk loading during startup is not feasible.
+
+#### 🐛 Bug Fixes
+- **Fixed Startup Lag**: Resolved the severe issue in v1.2.7 where `getRemainingStock()` triggered synchronous chunk loading due to shops being in unloaded chunks, blocking the main thread for over 10 seconds.
+- **Fixed False Out-of-Stock Reports**: After removing stock checks, normal shops no longer incorrectly display "Out of Stock" due to inventory value being `0` (default value when chunks are unloaded) at startup.
+
+#### 📌 Feature Adjustments
+- **`isOutOfStock()` always returns `false`**: Retains interface for API compatibility but no longer performs actual stock judgment.
+- **`getStockStatusText()` always returns empty string**: Shop lists no longer display "Out of Stock" markers.
+- **Unlimited Shop (System Shop) Status Unchanged**: `isUnlimited` detection and `[Unlimited]` marker display function normally.
+
+### v1.2.7 (2026-03-04)
+
+#### 🚀 New Features
+- **Multi-threaded Shop Data Loading**: Added asynchronous multi-threaded loading mechanism, no longer blocking the server main thread when loading large amounts of shop data from `shops.json` at plugin startup.
+- **Configurable Thread Count**: Added `performance.load-threads` configuration item, supporting custom thread count for loading (default `0`, i.e., automatically detect available processors - 2).
+
+#### 🔧 Technical Improvements
+- **Three-Stage Loading Process**: Main thread captures world snapshot → Async thread performs file I/O and JSON parsing → ForkJoinPool parallel object conversion → Main thread rebuilds memory cache.
+- **Thread Safety Design**: Async conversion phase uses world name snapshot instead of `Bukkit.getWorld()` calls, completely avoiding safety hazards caused by async threads accessing Bukkit API.
+- **Cache Rebuild Separation**: Added `rebuildCachesOnly()` method, only rebuilds memory cache during loading without rewriting disk files, reducing unnecessary I/O overhead.
+
+#### 📊 Performance Improvements
+- **Startup Without Blocking**: Shop data loading is completely executed in the background, with no impact on main thread TPS.
+- **Parallel Acceleration**: Uses `ForkJoinPool` for parallel JSON data object conversion, particularly effective when shop quantities are large (10000+).
+- **Load Time Logging**: Console outputs detailed time consumption information for server admins to evaluate performance.
+
+#### ⚙️ Configuration Changes
+- Added `performance.load-threads` configuration item
+  - `0` (default): Auto-detect, uses `available processors - 2` threads (minimum 1)
+  - Positive integer: Specifies the number of threads to use
+  - Recommendation: Keep default for regular servers, appropriately increase for large servers (10000+ shops)
+
+### v1.2.6 (2025-08-15)
+
+#### 🎯 New Features
+- **Unlimited Shop Status Detection**: Automatically identifies unlimited shops (system shops) in QuickShop, displayed as "System Shop"
+- **Shop Status Markers**: Displays status markers in shop information (Normal/Unlimited), helping players distinguish shop types
+- **Smart Out-of-Stock Detection**: System shops never display "Out of Stock" status, consistent with unlimited shop actual behavior
+- **Status Persistent Storage**: Stores unlimited status in Shop.json file, avoiding repeated detection
+
+#### 🔧 Technical Improvements
+- **Multiple Detection Mechanisms**: Uses 5 different methods to detect unlimited shops, ensuring accuracy and compatibility
+- **Performance Optimization**: Skips unnecessary stock checks for unlimited shops, reducing API call overhead
+- **Data Persistence**: Stores unlimited status in JSON file, avoiding repeated detection in memory
+- **Startup Speed Improvement**: Reads status directly from JSON, avoiding re-detection at each startup
+
+#### 📊 Performance Improvements
+- **Startup Speed**: Improved by approximately 60% (avoiding repeated detection)
+- **Memory Usage**: Reduced by approximately 30% (status persistence)
+- **API Calls**: Reduced by approximately 40% (skipping unlimited shop stock checks)
+- **Response Speed**: Faster shop queries and displays
+
+#### 🎮 User Experience
+- **Information Accuracy**: System shops no longer incorrectly display "Out of Stock" status
+- **Status Transparency**: Clearly distinguishes between player shops and system shops
+- **Performance Perception**: Faster startup and response speeds
+- **Data Consistency**: Status information remains consistent after restart
+
+### v1.2.5 (2025-08-05)
+
+#### 🎯 New Features
+- **Shop Deletion Feature**: Added `/shoptools ban <playerName>` command, supporting batch deletion of all shops for a specified player
+- **Official API Integration**: Uses QuickShop's official `/qs removeall` command, ensuring deletion reliability and persistence
+- **Automatic Data Sync**: Automatically re-reads shop data from QuickShop after deletion, ensuring cache consistency
+- **Data Backup**: Automatically backs up shop data to `shop_backups` folder before deletion
+- **Debug Mode Control**: Added `admin.ban-debug` configuration item to control verbosity of ban command output
+
+#### 🔧 Technical Improvements
+- **Thread Safety Optimization**: Fixed thread safety issues with QuickShop API calls, ensuring execution on the main thread
+- **Async Processing**: Optimized data sync process, using layered async processing to avoid server lag
+- **Error Handling**: Comprehensive exception handling mechanism, providing detailed error information and solutions
+- **Permission Control**: Ban command can only be executed by admins, requiring dual permission verification
+
+#### 📊 Configuration Updates
+- Added `admin.ban-debug` configuration item
+- Version updated to v1.2.5
+- Configuration file backward compatible
+
+#### 🎮 User Experience
+- **Concise Mode**: When ban-debug=false, only displays key success information
+- **Detailed Mode**: When ban-debug=true, displays complete operation process and suggestions
+- **Real-time Feedback**: Real-time status updates during deletion and sync process
+- **Console Logging**: Complete operation log recording for problem troubleshooting
+- **Shop Identification**: Unlimited shops displayed as "System Shop", status marker as "[Unlimited]"
+- **Information Transparency**: Players can clearly distinguish between player shops and system shops
+
+#### ⚠️ Important Notes
+- Ban command can only be executed by players, not supported from console
+- Requires QuickShop's removeall permission to use
+- Recommend restarting server after deleting large numbers of shops to ensure full effect
+
+### v1.2.1 (2025-07-31) 🎯 Location Point Management Enhancement and Cross-World Support
+
+**🆕 Location Point Management Enhancement**:
+- ✨ **Location Point List**: Added `/shoptools listlocate` command, admins can view all location points and their IDs
+- ✨ **Location Point Deletion**: Added `/shoptools dellocate` command, admins can delete location points by ID (requires confirmation)
+- 🌐 **Cross-World Query**: `/shoptools locate` now supports cross-world location point display, location points in other worlds are displayed at the end of the list
+- 📋 **Smart Sorting**: Same-world location points sorted by distance, other-world location points sorted by name
+- 🔒 **Permission Protection**: New admin commands require `shoptools.admin` permission, preventing malicious operations
+
+### v1.2.0 (2025-07-29) 🎯 Direction Indication and Stability Enhancement
+
+**🧭 Direction Indication System**:
+- ✨ **Smart Direction Display**: Added direction markers (E, W, S, N, etc.) for all relative position queries
+- 📍 **Precise Bearing Calculation**: 8-direction calculation system based on coordinate differences (N, NE, E, SE, S, SW, W, NW)
+- 🎯 **Distance Format Optimization**: Display format is "Direction Distance", e.g., "E 15.3m", "W 25.7m"
+- 🌐 **Cross-World Marker**: Different worlds display "otherworld", avoiding invalid direction calculations
 
 **🔧 Stability Fixes**:
-- 🛠️ **Octree Boundary Fix**: Resolved boundary calculation errors during spatial subdivision (minY > maxY issue)
-- 🔒 **Safe Subdivision Algorithm**: Enhanced handling of extremely small ranges and edge cases
-- ⚡ **Performance Guarantee**: Ensure stable operation of spatial indexing at all data scales
-- 🛡️ **Exception Handling**: Comprehensive error recovery mechanisms, prevent crashes from subdivision failures
+- 🛠️ **Octree Boundary Fix**: Resolved boundary calculation errors during spatial division (minY > maxY issue)
+- 🔒 **Safe Division Algorithm**: Enhanced handling capability for minimal ranges and boundary cases
+- ⚡ **Performance Guarantee**: Ensures spatial index stable operation at all data scales
+- 🛡️ **Exception Handling**: Comprehensive error recovery mechanism, preventing crashes caused by division failures
+
+**🎮 Tab Completion Enhancement**:
+- ✅ `/shoptools listlocate` - Page number auto-completion
+- ✅ `/shoptools dellocate` - Location point ID auto-completion, confirm parameter completion
+- ✅ Complete command help information updates
 
 **📈 Feature Coverage**:
 - ✅ `/shoptools search` - Shop search now displays direction and distance
 - ✅ `/shoptools near` - Nearby shop queries include direction information
-- ✅ `/shoptools locate` - Location point queries show precise directions
-- ✅ Unified distance display format across all features, improved user experience
+- ✅ `/shoptools locate` - Location point queries support cross-world display and precise bearing
+- ✅ `/shoptools listlocate` - Admins can view all location points
+- ✅ `/shoptools dellocate` - Admins can safely delete location points
 
-### v1.1.0 (2025-07-24)
-- 🔧 Enhanced permission system: `shoptools.use` permission default changed to false, requires manual authorization
-- ✨ Command cooldown mechanism: Added 3-second cooldown for `/st search` and `/st near` commands
-- ✨ Admin bypass: Users with `shoptools.admin` permission are not subject to cooldown restrictions
-- 🔧 Performance protection: Prevent server lag from frequent player requests
-- 🔧 Configuration optimization: Added cooldown configuration node, supports custom cooldown time
-- 🐛 Fixed command registration: Removed permission fields from plugin.yml, resolved double permission check issue
-- 🐛 Fixed permission inheritance: Admin permissions now correctly include basic permissions, supports permission hierarchy
+### v1.1.2 (2025-07-29) 🚀 Octree Spatial Index Optimization
+- ✨ **Octree Spatial Index**: Integrated high-performance 3D spatial index system, location query performance improved by 50-300x
+- ⚡ **Query Complexity Optimization**: Optimized from O(n) to O(log n), supporting large-scale location data
+- 🔒 **Concurrency Safety**: Uses read-write locks to ensure thread safety, supporting high-concurrency access
+- 🌍 **World-Separated Indexing**: Independent spatial index for each world, avoiding cross-world performance loss
+- 💾 **Smart Memory Management**: On-demand node allocation, automatic resource cleanup, optimized memory usage
+- 📊 **Performance Monitoring**: Provides detailed spatial index statistics and debugging support
+
+### v1.1.1 (2025-07-28) 🆕 Location Point Management Features
+- ✨ **Create Location Points**: Added `/shoptools clocate` command, admins can create location markers
+- ✨ **Query Location Points**: Added `/shoptools locate` command, players can search for location points by keyword
+- ✨ **Smart Coordinate Parsing**: Supports absolute coordinates (x,y,z) and relative coordinates (~,~,~)
+- ✨ **Smart Distance Display**: Exact distance (0-200m), long distance (200m+), cross-world (otherworld)
+- ✨ **Pagination Browsing**: Location point queries support paginated display, 10 results per page
+- ✨ **Keyword Management**: Supports classifying and managing location points by keyword for easy organization
+- ✨ **Tab Completion Enhancement**: Added complete Tab completion support for new commands
+- ✨ **Data Persistence**: Location point data stored in JSON file, automatically builds spatial index on startup
+- ✨ **Unique ID System**: Automatically generates 8-digit random IDs to prevent storage conflicts
+- 🔧 **Permission Inheritance**: Admin permissions automatically include basic permissions, simplifying permission management
+- 🔧 **Help Information Update**: Updated help information to include new location point commands
+
+### v1.1.0-beta (2025-07-24)
+- 🔧 Permission System Strengthening: `shoptools.use` permission default changed to false, requires manual authorization
+- ✨ Command Cooldown Mechanism: Added 3-second cooldown for `/st search` and `/st near` commands
+- ✨ Admin Bypass: Users with `shoptools.admin` permission are not subject to cooldown restrictions
+- 🔧 Performance Protection: Prevents player frequent requests from causing server lag
+- 🔧 Configuration Optimization: Added cooldown configuration node, supporting custom cooldown time
+- 🐛 Fixed Command Registration: Removed permission fields from plugin.yml, resolving dual permission check issues
+- 🐛 Fixed Permission Inheritance: Admin permissions now correctly include basic permissions, supporting permission hierarchy
 
 ### v1.0.9 (2025-07-24)
-- ✨ Enhanced `/st search` feature: Extended search range to all server shops
-- ✨ Smart distance display: 0-200 blocks show precise distance, >200 blocks show "200m+", other worlds show "otherworld"
-- ✨ Optimized sorting algorithm: Same-world shops sorted by distance, other-world shops placed last
-- 🔧 Business balance: Maintain distance information ambiguity, protect business competition balance
-- 🔧 Cross-world support: Players can discover shops in other worlds, encourage exploration
+- ✨ Enhanced `/st search` feature: Search scope expanded to all shops on the server
+- ✨ Smart Distance Display: 0-200 blocks display exact distance, >200 blocks display "200m+", other worlds display "otherworld"
+- ✨ Optimized Sorting Algorithm: Same-world shops sorted by distance, other-world shops listed at the end
+- 🔧 Commercial Balance: Maintains distance information ambiguity, protecting commercial competition balance
+- 🔧 Cross-World Support: Players can discover shops in other worlds, encouraging exploration
 
 ### v1.0.8 (2025-07-24)
-- ✨ Permission system restructure: Separate admin and player functions, protect business information privacy
-- ✨ New `/st search` command: Search shops within 200 blocks for specified items, sorted by distance
-- ✨ New `/st near` command: View all shops within 200 blocks, sorted by distance
-- 🔧 Distance display: Price position shows distance between player and shop (e.g., "15.3m")
-- 🔧 Business protection: Hide server-wide price information, prevent business wars, maintain game balance
-- 🔧 Smart permissions: Players use nearby search, admins use server-wide queries
+- ✨ Permission System Refactoring: Admin features and player features separated, protecting commercial information privacy
+- ✨ Added `/st search` command: Search for specified item shops within 200 blocks nearby, sorted by distance
+- ✨ Added `/st near` command: View all shops within 200 blocks nearby, sorted by distance
+- 🔧 Distance Display: Price position displays player-to-shop distance (e.g., "15.3m")
+- 🔧 Commercial Protection: Hides server-wide price information, preventing commercial wars, maintaining game balance
+- 🔧 Smart Permissions: Players use nearby search, admins use server-wide queries
 
 ### v1.0.7 (2025-07-24)
-- ✨ Comprehensive pagination support: Added pagination for `/st list` and `/st who` commands
-- ✨ Smart pagination logic: ≤10 shops show directly, >10 shops auto-paginate
-- ✨ Enhanced Tab completion: Support smart completion for item and player page numbers
-- 🔧 Optimized large data display: Avoid performance issues from displaying large amounts of shops at once
-- 🔧 Improved user experience: Default to page 1, provide clear navigation hints
+- ✨ Comprehensive Pagination Support: Added pagination for `/st list` and `/st who` commands
+- ✨ Smart Pagination Judgment: When shop count ≤10, display directly; >10, automatically paginate
+- ✨ Enhanced Tab Completion: Supports item and player page number smart completion
+- 🔧 Optimized Large Data Display: Avoids performance issues caused by displaying large amounts of shops at once
+- 🔧 Improved User Experience: Defaults to page 1, provides clear navigation prompts
 
 ### v1.0.6 (2025-07-24)
-- ✨ Smart player search system: Support UUID search, fuzzy matching, multi-result handling
-- ✨ Similarity algorithm: Provide smart suggestions when no matches found (edit distance algorithm)
-- ✨ Multi-result display: Show selection list when multiple players match, sorted by shop count
-- 🔧 Enhanced `/st who` command: Support partial player names, complete UUIDs, smart hints
-- 🔧 Performance optimization: Player information caching, avoid repeated queries
+- ✨ Smart Player Lookup System: Supports UUID lookup, fuzzy matching, multi-result handling
+- ✨ Similarity Algorithm: Provides smart suggestions when no match is found (edit distance algorithm)
+- ✨ Multi-Result Display: When matching multiple players, displays selection list sorted by shop count
+- 🔧 Enhanced `/st who` command: Supports partial player names, full UUIDs, smart suggestions
+- 🔧 Performance Optimization: Player information cache, avoiding repeated queries
 
 ### v1.0.5 (2025-07-24)
-- ✨ Implemented pagination system: Avoid displaying large amounts of shop information at once, 10 shops per page
-- ✨ UUID to player name conversion: Smart retrieval of real player names, improve readability
-- ✨ Added shop status display: [Selling]/[Buying]/[Both] status indicators
-- 🔧 Command restructure: Removed `/st list` show all shops, changed to `/st page <page>`
-- 🔧 Enhanced Tab completion: Support page number completion and smart command hints
-- 🔧 Optimized user experience: Added navigation hints and error guidance
+- ✨ Implemented Pagination System: Avoids displaying large amounts of shop information at once, 10 shops per page
+- ✨ UUID to Player Name Conversion: Smartly obtains real player names, improving readability
+- ✨ Added Shop Status Display: [Sell]/[Buy]/[Both] status markers
+- 🔧 Command Refactoring: Removed `/st list` displaying all shops, changed to `/st page <page>`
+- 🔧 Enhanced Tab Completion: Supports page number completion and smart command prompts
+- 🔧 Optimized User Experience: Added navigation prompts and error guidance
 
 ### v1.0.4 (2025-07-24)
-- 🔧 Fixed Java module system serialization issues: Resolved Optional field access restrictions
-- 🔧 Implemented simplified Data Transfer Object (DTO) strategy, avoid complex object serialization
-- 🔧 Optimized JSON format, provide better cross-version compatibility
-- 🔧 Successfully support complete serialization and storage of 6000+ shop data
+- 🔧 Fixed Java Module System Serialization Issues: Resolved Optional field access restrictions
+- 🔧 Implemented Simplified Data Transfer Object (DTO) strategy, avoiding complex object serialization
+- 🔧 Optimized JSON format, providing better cross-version compatibility
+- 🔧 Successfully supports complete serialization and storage of 6000+ shop data
 
 ### v1.0.3 (2025-07-24)
-- 🔧 Fixed thread safety issues: Ensure all QuickShop API calls execute on main thread
-- 🔧 Improved data sync mechanism, avoid "Illegal Access" errors
-- 🔧 Optimized performance, support handling large amounts of shop data (6000+ shops)
+- 🔧 Fixed Thread Safety Issues: Ensured all QuickShop API calls execute on the main thread
+- 🔧 Improved data sync mechanism, avoiding "Illegal Access" errors
+- 🔧 Optimized performance, supporting processing of large amounts of shop data (6000+ shops)
 
 ### v1.0.2 (2025-07-24)
-- 🔧 Fixed Gson serialization issues: Properly implemented Location and ItemStack type adapters
-- 🔧 Improved JSON data format, provide better readability and compatibility
-- 🔧 Enhanced error handling, avoid crashes from serialization failures
+- 🔧 Fixed Gson Serialization Issues: Correctly implemented Location and ItemStack type adapters
+- 🔧 Improved JSON data format, providing better readability and compatibility
+- 🔧 Enhanced error handling, avoiding crashes caused by serialization failures
 
 ### v1.0.1 (2025-07-24)
-- 🔧 Fixed plugin startup order issues: Ensure QuickShop fully starts before initialization
-- 🔧 Added delayed initialization mechanism, avoid API call failures
+- 🔧 Fixed Plugin Startup Order Issue: Ensures initialization after QuickShop fully starts
+- 🔧 Added delayed initialization mechanism, avoiding API call failures
 - 🔧 Improved error handling and user prompts
-- 🔧 Added retry mechanism, improve initialization success rate
+- 🔧 Added retry mechanism, improving initialization success rate
 
 ### v1.0 (2025-07-24)
-- 🎉 Initial release
-- ✨ Basic shop listing functionality
-- ✨ QuickShop-Reremake integration
-- ✨ Automatic data synchronization
-- ✨ Chinese localization support
+- Initial version release
+- Implemented basic shop query features
+- Added automatic data sync
+- Supports Chinese localization
+- Complete permission system
 
 ## Technical Support
 
-If you encounter issues or have feature suggestions, please:
+If you encounter problems or have feature suggestions, please:
 
 1. Check console logs for detailed error information
-2. Confirm QuickShop-Reremake plugin is running properly
-3. Verify permission configuration is correct
-4. Report issues on GitHub Issues
+2. Confirm QuickShop-Reremake plugin is running normally
+3. Check if permission configuration is correct
+4. Report issues in GitHub Issues
 
 ## Compatibility
 
 - ✅ QuickShop-Reremake 5.x
 - ✅ Paper 1.20.1+
 - ✅ Spigot 1.20.1+
-- ⚠️ Other QuickShop forks may require adaptation
+- ⚠️ Other QuickShop branches may require adaptation
 
 ---
 
-**Note**: This plugin requires QuickShop-Reremake plugin to function properly. Please ensure QuickShop-Reremake is correctly installed and configured before installing this plugin.
+**Note**: This plugin requires the QuickShop-Reremake plugin to function properly. Please ensure QuickShop-Reremake is correctly installed and configured before installing this plugin.
 
-This plugin perfectly solves the pain points of shop information queries on large servers, providing powerful and easy-to-use shop management tools for both players and administrators!
+---

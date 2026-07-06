@@ -30,6 +30,7 @@ public class ConfigManager {
     private static final boolean DEFAULT_STOCK_SCAN_ENABLED = true;
     private static final int DEFAULT_STOCK_SCAN_CHUNKS_PER_TICK = 3; // 每 tick 处理的区块数
     private static final int DEFAULT_STOCK_SCAN_TICK_DELAY = 5;      // 每批次间隔 tick 数
+    private static final boolean DEFAULT_ENABLE_ENGLISH_ITEM_COMPLETION = true;
     
     /**
      * 构造函数
@@ -71,6 +72,7 @@ public class ConfigManager {
         config.addDefault("performance.stock-scan.enabled", DEFAULT_STOCK_SCAN_ENABLED);
         config.addDefault("performance.stock-scan.chunks-per-tick", DEFAULT_STOCK_SCAN_CHUNKS_PER_TICK);
         config.addDefault("performance.stock-scan.tick-delay", DEFAULT_STOCK_SCAN_TICK_DELAY);
+        config.addDefault("feature.enable-english-item-completion", DEFAULT_ENABLE_ENGLISH_ITEM_COMPLETION);
         
         // 消息配置
         config.addDefault("messages.prefix", "&6[ShopTools] &r");
@@ -182,6 +184,15 @@ public class ConfigManager {
      */
     public int getStockScanTickDelay() {
         return Math.max(1, config.getInt("performance.stock-scan.tick-delay", DEFAULT_STOCK_SCAN_TICK_DELAY));
+    }
+
+    /**
+     * 是否在 Tab 补全中显示英文物品ID。
+     *
+     * @return {@code true} 表示启用英文物品ID补全
+     */
+    public boolean isEnglishItemCompletionEnabled() {
+        return config.getBoolean("feature.enable-english-item-completion", DEFAULT_ENABLE_ENGLISH_ITEM_COMPLETION);
     }
     
     public String getMessage(String key) {

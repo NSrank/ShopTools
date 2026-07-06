@@ -3,6 +3,7 @@ package org.plugin.shoptools;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.plugin.shoptools.command.ShopToolsCommand;
 import org.plugin.shoptools.config.ConfigManager;
+import org.plugin.shoptools.config.ItemAliasManager;
 import org.plugin.shoptools.integration.QuickShopIntegration;
 import org.plugin.shoptools.manager.LocationManager;
 import org.plugin.shoptools.manager.ShopBackupManager;
@@ -14,11 +15,12 @@ import org.plugin.shoptools.sync.DataSyncManager;
  * ShopTools主类
  * 一个帮助玩家更好使用QuickShop-Reremake插件的工具
  *
- * @author NSrank & Augment
+ * @author NSrank & Augment & CodeX
  */
 public final class ShopTools extends JavaPlugin {
 
     private ConfigManager configManager;
+    private ItemAliasManager aliasManager;
     private QuickShopIntegration quickShopIntegration;
     private LocationManager locationManager;
     private ShopDataManager dataManager;
@@ -30,8 +32,8 @@ public final class ShopTools extends JavaPlugin {
     @Override
     public void onEnable() {
         getLogger().info("===================================");
-        getLogger().info("ShopTools v1.3.1 正在启动...");
-        getLogger().info("作者：NSrank & Augment");
+        getLogger().info("ShopTools v1.3.2 正在启动...");
+        getLogger().info("作者：NSrank & Augment & CodeX");
         getLogger().info("===================================");
 
         try {
@@ -44,7 +46,7 @@ public final class ShopTools extends JavaPlugin {
             // 延迟初始化QuickShop相关功能，确保QuickShop完全启动
             getServer().getScheduler().runTaskLater(this, this::initializeQuickShopIntegration, 60L); // 3秒延迟
 
-            getLogger().info("ShopTools v1.3.1 基础功能启动完成！");
+            getLogger().info("ShopTools v1.3.2 基础功能启动完成！");
             getLogger().info("正在等待QuickShop插件完全启动...");
 
         } catch (Exception e) {
@@ -73,7 +75,7 @@ public final class ShopTools extends JavaPlugin {
             // 更新命令处理器
             updateCommandHandler();
 
-            getLogger().info("ShopTools v1.3.1 完全启动完成！");
+            getLogger().info("ShopTools v1.3.2 完全启动完成！");
 
         } catch (Exception e) {
             getLogger().severe("QuickShop集成初始化失败: " + e.getMessage());
@@ -120,6 +122,10 @@ public final class ShopTools extends JavaPlugin {
         getLogger().info("初始化配置管理器...");
         configManager = new ConfigManager(this);
         getLogger().info("配置管理器初始化完成。");
+
+        getLogger().info("初始化物品别名映射...");
+        aliasManager = new ItemAliasManager(this);
+        getLogger().info("物品别名映射初始化完成。");
 
         getLogger().info("初始化位置管理器...");
         locationManager = new LocationManager(this, configManager);
@@ -176,7 +182,7 @@ public final class ShopTools extends JavaPlugin {
      */
     private void registerCommands() {
         getLogger().info("注册命令处理器...");
-        commandHandler = new ShopToolsCommand(this, configManager, null, locationManager); // 初始时dataManager为null
+        commandHandler = new ShopToolsCommand(this, configManager, null, locationManager, aliasManager); // 初始时dataManager为null
 
         getCommand("shoptools").setExecutor(commandHandler);
         getCommand("shoptools").setTabCompleter(commandHandler);
@@ -249,6 +255,10 @@ public final class ShopTools extends JavaPlugin {
      */
     public ShopDataManager getDataManager() {
         return dataManager;
+    }
+
+    public ItemAliasManager getAliasManager() {
+        return aliasManager;
     }
 
     /**
