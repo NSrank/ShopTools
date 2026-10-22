@@ -1,0 +1,290 @@
+package org.plugin.shoptools;
+
+import org.bukkit.plugin.java.JavaPlugin;
+import org.plugin.shoptools.command.ShopToolsCommand;
+import org.plugin.shoptools.config.ConfigManager;
+import org.plugin.shoptools.config.ItemAliasManager;
+import org.plugin.shoptools.integration.QuickShopIntegration;
+import org.plugin.shoptools.manager.LocationManager;
+import org.plugin.shoptools.manager.ShopBackupManager;
+import org.plugin.shoptools.scan.StockScanQueue;
+import org.plugin.shoptools.storage.ShopDataManager;
+import org.plugin.shoptools.sync.DataSyncManager;
+
+/**
+ * ShopTools主类
+ * 一个帮助玩家更好使用QuickShop-Reremake插件的工具
+ *
+ * @author NSrank & Augment & CodeX
+ */
+public final class ShopTools extends JavaPlugin {
+
+    private ConfigManager configManager;
+    private ItemAliasManager aliasManager;
+    private QuickShopIntegration quickShopIntegration;
+    private LocationManager locationManager;
+    private ShopDataManager dataManager;
+    private DataSyncManager syncManager;
+    private ShopBackupManager backupManager;
+    private ShopToolsCommand commandHandler;
+    private StockScanQueue stockScanQueue;
+
+    @Override
+    public void onEnable() {
+        getLogger().info("===================================");
+        getLogger().info("ShopTools v1.3.2 正在启动...");
+        getLogger().info("作者：NSrank & Augment & CodeX");
+        getLogger().info("===================================");
+
+        try {
+            // 初始化配置管理器
+            initializeConfig();
+
+            // 注册命令（先注册命令，即使QuickShop未就绪也能响应）
+            registerCommands();
+
+            // 延迟初始化QuickShop相关功能，确保QuickShop完全启动
+            getServer().getScheduler().runTaskLater(this, this::initializeQuickShopIntegration, 60L); // 3秒延迟
+
+            getLogger().info("ShopTools v1.3.2 基础功能启动完成！");
+            getLogger().info("正在等待QuickShop插件完全启动...");
+
+        } catch (Exception e) {
+            getLogger().severe("ShopTools启动失败: " + e.getMessage());
+            e.printStackTrace();
+            getServer().getPluginManager().disablePlugin(this);
+        }
+    }
+
+    /**
+     * 延迟初始化QuickShop集成功能
+     */
+    private void initializeQuickShopIntegration() {
+        try {
+            getLogger().info("开始初始化QuickShop集成...");
+
+            // 初始化QuickShop集成
+            initializeQuickShop();
+
+            // 初始化数据管理器
+            initializeDataManager();
+
+            // 初始化同步管理器
+            initializeSyncManager();
+
+            // 更新命令处理器
+            updateCommandHandler();
+
+            getLogger().info("ShopTools v1.3.2 完全启动完成！");
+
+        } catch (Exception e) {
+            getLogger().severe("QuickShop集成初始化失败: " + e.getMessage());
+            e.printStackTrace();
+
+            // 重试机制：如果失败，30秒后再次尝试
+            getLogger().warning("将在30秒后重试初始化...");
+            getServer().getScheduler().runTaskLater(this, this::initializeQuickShopIntegration, 600L);
+        }
+    }
+
+    @Override
+    public void onDisable() {
+        getLogger().info("ShopTools 正在关闭...");
+
+        try {
+            // 停止同步管理器
+            if (syncManager != null) {
+                syncManager.stopSync();
+            }
+
+            // 停止库存扫描队列
+            if (stockScanQueue != null) {
+                stockScanQueue.stop();
+            }
+
+            // 清理位置管理器资源
+            if (locationManager != null) {
+                locationManager.shutdown();
+            }
+
+            getLogger().info("ShopTools 已安全关闭。");
+
+        } catch (Exception e) {
+            getLogger().severe("ShopTools关闭时发生错误: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * 初始化配置管理器
+     */
+    private void initializeConfig() {
+        getLogger().info("初始化配置管理器...");
+        configManager = new ConfigManager(this);
+        getLogger().info("配置管理器初始化完成。");
+
+        getLogger().info("初始化物品别名映射...");
+        aliasManager = new ItemAliasManager(this);
+        getLogger().info("物品别名映射初始化完成。");
+
+        getLogger().info("初始化位置管理器...");
+        locationManager = new LocationManager(this, configManager);
+        getLogger().info("位置管理器初始化完成。");
+
+        getLogger().info("初始化商店备份管理器...");
+        backupManager = new ShopBackupManager(getDataFolder(), getLogger());
+        getLogger().info("商店备份管理器初始化完成。");
+    }
+
+    /**
+     * 初始化QuickShop集成
+     */
+    private void initializeQuickShop() {
+        getLogger().info("初始化QuickShop集成...");
+        quickShopIntegration = new QuickShopIntegration(getLogger());
+
+        if (!quickShopIntegration.isQuickShopAvailable()) {
+            getLogger().warning("QuickShop不可用！插件功能将受限。");
+        } else {
+            getLogger().info("QuickShop集成初始化完成。");
+        }
+    }
+
+    /**
+     * 初始化数据管理器，并触发异步多线程数据加载。
+     * 数据加载完成后自动启动库存扫描队列（如已在配置中启用）。
+     */
+    private void initializeDataManager() {
+        getLogger().info("初始化数据管理器...");
+        dataManager = new ShopDataManager(getDataFolder(), configManager, getLogger());
+        stockScanQueue = new StockScanQueue(this, quickShopIntegration, dataManager, configManager, getLogger());
+
+        // 异步加载本地缓存数据，加载完成后触发库存扫描
+        dataManager.loadDataAsync(this, () -> {
+            getLogger().info("缓存数据已就绪，开始库存扫描...");
+            stockScanQueue.start(dataManager.getAllShops(), null);
+        });
+        getLogger().info("数据管理器初始化完成，异步加载已启动。");
+    }
+
+    /**
+     * 初始化同步管理器
+     */
+    private void initializeSyncManager() {
+        getLogger().info("初始化同步管理器...");
+        syncManager = new DataSyncManager(this, configManager, quickShopIntegration, dataManager);
+        syncManager.startSync();
+        getLogger().info("同步管理器初始化完成。");
+    }
+
+    /**
+     * 注册命令
+     */
+    private void registerCommands() {
+        getLogger().info("注册命令处理器...");
+        commandHandler = new ShopToolsCommand(this, configManager, null, locationManager, aliasManager); // 初始时dataManager为null
+
+        getCommand("shoptools").setExecutor(commandHandler);
+        getCommand("shoptools").setTabCompleter(commandHandler);
+        getCommand("st").setExecutor(commandHandler);
+        getCommand("st").setTabCompleter(commandHandler);
+
+        getLogger().info("命令处理器注册完成。");
+    }
+
+    /**
+     * 更新命令处理器的数据管理器
+     */
+    private void updateCommandHandler() {
+        if (commandHandler != null && dataManager != null) {
+            commandHandler.setDataManager(dataManager);
+            getLogger().info("命令处理器数据管理器已更新。");
+        }
+    }
+
+    /**
+     * 手动同步商店数据
+     *
+     * @return 同步是否成功
+     */
+    public boolean syncShopData() {
+        if (syncManager != null) {
+            return syncManager.performManualSync();
+        }
+        return false;
+    }
+
+    /**
+     * 触发一次库存重新扫描。
+     * <p>
+     * 停止当前正在运行的扫描队列（如有），然后创建新队列并立即开始扫描。
+     * 使用 5 tick 的短初始延迟，适合同步完成后或 reload 后调用。
+     * 必须从主线程调用。
+     */
+    public void triggerStockScan() {
+        if (!configManager.isStockScanEnabled()) {
+            return;
+        }
+        if (dataManager == null || quickShopIntegration == null) {
+            return;
+        }
+        // 停止旧的扫描队列（若仍在运行）
+        if (stockScanQueue != null) {
+            stockScanQueue.stop();
+        }
+        // 创建新队列并以 5 tick 短延迟启动，避免数据还未写入缓存就开始扫描
+        stockScanQueue = new StockScanQueue(
+                this, quickShopIntegration, dataManager, configManager, getLogger());
+        stockScanQueue.start(dataManager.getAllShops(), null, 5L);
+        getLogger().info("库存重新扫描已触发（" + dataManager.getShopCount() + " 家商店）。");
+    }
+
+    /**
+     * 获取配置管理器
+     *
+     * @return 配置管理器实例
+     */
+    public ConfigManager getConfigManager() {
+        return configManager;
+    }
+
+    /**
+     * 获取数据管理器
+     *
+     * @return 数据管理器实例
+     */
+    public ShopDataManager getDataManager() {
+        return dataManager;
+    }
+
+    public ItemAliasManager getAliasManager() {
+        return aliasManager;
+    }
+
+    /**
+     * 获取同步管理器
+     *
+     * @return 同步管理器实例
+     */
+    public DataSyncManager getSyncManager() {
+        return syncManager;
+    }
+
+    /**
+     * 获取QuickShop集成实例
+     *
+     * @return QuickShop集成实例
+     */
+    public QuickShopIntegration getQuickShopIntegration() {
+        return quickShopIntegration;
+    }
+
+    /**
+     * 获取商店备份管理器
+     *
+     * @return 商店备份管理器实例
+     */
+    public ShopBackupManager getBackupManager() {
+        return backupManager;
+    }
+}
